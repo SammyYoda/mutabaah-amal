@@ -1,0 +1,10 @@
+node_modules/
+.claude/
+*.zip
+package-lock.json
+
+# Design reference mockups (not source code)
+mutabaah/stitch_mutaba_ah_amal_worship_tracker/ahli_*/
+mutabaah/stitch_mutaba_ah_amal_worship_tracker/naqib_*/
+mutabaah/stitch_mutaba_ah_amal_worship_tracker/log_masuk_*/
+mutabaah/stitch_mutaba_ah_amal_worship_tracker/tarbiyah_ikram_design_system/
