@@ -120,3 +120,12 @@ Task 7: minor (deferred): reset-password check→await hash→update gap; re-che
 Task 7: minor (deferred): naqib reset-password doesn't refuse admin targets (admins can't hold memberships today)
 Task 7: minor (deferred): rejoin path hashes password unnecessarily; notes '' vs null inconsistency on re-tag; re-tag overwrites old-usrah row (plan-mandated unique(user,date))
 Task 7: complete (commits 5b27080..bd05494, review clean)
+Task 8: dispatched (base 76f359f, implementer agent ab15b7c222f8d9c2f, sonnet; carries R4, R6)
+Ruling R17: analytics windows — last4w = weekStart(today)-21 .. today (4 ISO weeks incl. current); weekly series aligned to ISO weeks; heatmap 60 days; matrix weeks 1–12 default 4; prayerAvg4w = true prayers ÷ (5 × days since max(window start, joinedOn)); alerts no_log_3d (joined ≥3 days), drop (≥20 pts below prev 4 full weeks, needs prev expected > 0), level_c — plan left window alignment and KPI formulas open; cost if wrong: dashboard numbers defined differently than a naqib expects (formulas live in one service file).
+Ruling R18: dashboards list only role=member (naqib excluded) — naqib isn't tracked as a member; cost if wrong: naqib's own amalan not shown on roster.
+Task 8: implementer DONE (9be9d52) — 145/145; review dispatched
+Task 8: review — spec ✅, quality Approved (opus); 7 minors
+Ruling R19: reviewer Minor 3 promoted to Important — it is plan Review Focus #2. (a) periodScore: TODAY's harian items count in expected only if already met (in-progress day, same rule as R6 in-progress periods); dailyScore (live ring) unchanged. (b) a member with expected = 0 over last4w gets status {percentage:0, level:null, label:'Baru'}, no level_c alert, and is excluded from avg4w/avgThisWeek means. Spec §8 updated. — otherwise every new member (and every member each morning) shows Level C; cost if wrong: today's unmet items don't drag scores until the day ends.
+Task 8: minor (deferred): no test that a member's other-usrah logs are ignored; R4 test doesn't assert loggedToday/avg4w after removal
+Task 8: minor (deferred): prayerPct can exceed 100 with multiple prayers amalan; dead lastLogDate computation in memberMetrics; .default(def as any) typing; /members/:id loads whole roster
+Task 8: fix round 1/5 dispatched (fix base 9be9d52; resumed implementer ab15b7c222f8d9c2f with R19)
