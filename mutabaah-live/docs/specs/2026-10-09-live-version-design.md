@@ -168,7 +168,7 @@ All under `/api`, JSON. Errors: `{ "error": { "code": "...", "message": "<Malay 
 **Member**
 - `GET /amalan` — active amalan of own usrah
 - `GET /logs?from=&to=` — own logs (max range 400 days)
-- `PUT /logs/:date` `{values, notes}` — own log; `date` must be ≤ today and within the current calendar month (`Asia/Kuala_Lumpur`). Once a month ends, its logs are locked; Hari Ini shows earlier days read-only.
+- `PUT /logs/:date` `{values, notes}` — own log; `date` must be ≤ today and within the current calendar month (`Asia/Kuala_Lumpur`). **Grace period:** on days 1–7 of a month, the previous month is still editable. From the 8th, the previous month is locked and Hari Ini shows it read-only.
 - `GET /me/analytics?weeks=8` — weekly scores, 60-day heatmap, per-category breakdown
 
 **Naqib** (all limited to own usrah)
@@ -227,6 +227,6 @@ Ordered roughly by expected value:
   - signup with a valid/invalid/regenerated code; naqib invite single use and expiry; duplicate email
   - login, logout, rate limit, session expiry, forced password change after reset
   - **cross-usrah isolation:** naqib A gets 404 for usrah B's members, logs, amalan and guidance; a member cannot read another member's logs
-  - log date window: future dates and dates before the 1st of the current month are rejected (including the month-boundary case on the 1st)
+  - log date window: future dates rejected; current month accepted; previous month accepted on days 1–7 and rejected from the 8th; two months back always rejected
   - removed member loses access immediately
 - **E2E smoke (Playwright):** admin creates usrah → naqib accepts invite → member signs up with the code → logs today → naqib sees the member's score on Ringkasan.
