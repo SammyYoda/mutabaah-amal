@@ -65,6 +65,19 @@ describe('Matriks view', () => {
     expect($('tr[data-member-id="12"] [data-average]').textContent.trim()).toBe('62%');
   });
 
+  it('a member with no cells (R19) gets a neutral Baru pill and "—" average, not a red 0%', async () => {
+    await mount();
+    const row = $('tr[data-member-id="13"]');
+    const pill = row.querySelector('[data-baru]');
+    expect(pill.textContent.trim()).toBe('Baru');
+    expect(pill.className).not.toMatch(/success-amal|orange-vibrant|error/);
+    const avg = row.querySelector('[data-average]');
+    expect(avg.textContent.trim()).toBe('—');
+    expect(avg.className).not.toMatch(/success|orange|error/);
+    expect(row.textContent).not.toContain('0%');
+    expect($('tr[data-member-id="12"] [data-baru]')).toBeNull();
+  });
+
   it('search, filter and sort run on the client', async () => {
     await mount();
     getMatrix.mockClear();
@@ -88,7 +101,10 @@ describe('Matriks view', () => {
     expect(rowIds()).toEqual(['12']);
     $('#matrixFilterSelect').value = 'c';
     $('#matrixFilterSelect').dispatchEvent(new Event('change'));
-    expect(rowIds()).toEqual(['13']);
+    expect(rowIds()).toEqual([]); // the Baru row (no cells) belongs to no band
+    $('#matrixFilterSelect').value = 'all';
+    $('#matrixFilterSelect').dispatchEvent(new Event('change'));
+    expect(rowIds()).toEqual(['13', '12', '11']);
     expect(getMatrix).not.toHaveBeenCalled();
   });
 

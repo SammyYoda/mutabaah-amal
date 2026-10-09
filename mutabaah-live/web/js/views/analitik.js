@@ -108,7 +108,7 @@ export function renderAnalitikView(data) {
             <h1 class="font-headline-lg text-headline-lg text-on-surface font-bold text-2xl md:text-3xl mt-1">Analitik &amp; Momentum Istiqamah</h1>
             <p class="font-body-md text-body-md text-on-surface-variant text-sm mt-0.5 break-words">
               Penilaian kendiri 4 minggu terakhir bagi <span class="font-semibold text-on-surface">${escapeHtml(name)}</span>:
-              <span class="font-bold ${levelTextClass(status.level)}" data-status-pct>${escapeHtml(status.percentage)}%</span>
+              <span class="font-bold ${levelTextClass(status.level)}" data-status-pct>${status.level == null ? '—' : `${escapeHtml(status.percentage)}%`}</span>
             </p>
           </div>
           <div class="flex items-center gap-space-sm">

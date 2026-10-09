@@ -123,12 +123,18 @@ describe('Profil Ahli view', () => {
     expect($$('[data-day][data-logged="1"]').map((e) => e.dataset.day)).toEqual(['2026-10-07', '2026-10-09']);
   });
 
-  it('Baru status renders a neutral badge', async () => {
+  it('Baru status renders a neutral badge and "—" instead of 0% (KPI, donut, switcher)', async () => {
     getMember.mockResolvedValue({ ...MEMBER, status: { percentage: 0, level: null, label: 'Baru' } });
+    getMatrix.mockResolvedValue({ ...MATRIX, rows: [MATRIX.rows[0], { memberId: 12, name: 'Bakar Salleh', cells: {}, average: 0 }] });
     await mount();
     const b = $('[data-status-badge]');
     expect(b.textContent.trim()).toBe('Baru');
     expect(b.className).not.toMatch(/success-amal|orange-vibrant|error/);
+    expect($('[data-kpi="status"]').textContent.trim()).toBe('—');
+    expect($('[data-donut-label]').textContent.trim()).toBe('—');
+    expect($('[data-donut-arc]')).toBeNull();
+    const opts = [...$('#memberSelectorSelect').options].map((o) => o.textContent.trim());
+    expect(opts).toEqual(['Ali Bin Abu (88%)', 'Bakar Salleh (Baru)']);
   });
 
   it('guidance history: escaped body with line breaks and replies', async () => {

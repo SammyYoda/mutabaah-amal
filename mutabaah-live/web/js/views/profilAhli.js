@@ -186,6 +186,8 @@ function profileHtml(data) {
   const usrahName = getSession()?.usrah?.name ?? '';
   const thisWeek = weekly.length ? weekly[weekly.length - 1].percentage : 0;
   const statusPct = clampPct(status.percentage);
+  const baru = status.level == null; // R19: nothing expected yet → no failing 0%
+  const statusText = baru ? '—' : `${escapeHtml(status.percentage)}%`;
 
   const row = matrix.rows.find((r) => String(r.memberId) === String(member.id));
   const scored = row
@@ -196,7 +198,7 @@ function profileHtml(data) {
 
   const days = recentDaysHtml(recentLogs);
   const memberOptions = matrix.rows
-    .map((r) => `<option value="${escapeHtml(r.memberId)}" ${String(r.memberId) === String(member.id) ? 'selected' : ''}>${escapeHtml(r.name)} (${escapeHtml(r.average)}%)</option>`)
+    .map((r) => `<option value="${escapeHtml(r.memberId)}" ${String(r.memberId) === String(member.id) ? 'selected' : ''}>${escapeHtml(r.name)} (${r.cells && Object.keys(r.cells).length ? `${escapeHtml(r.average)}%` : 'Baru'})</option>`)
     .join('');
   const firstName = String(member.name ?? '').split(' ')[0];
 
@@ -248,16 +250,16 @@ function profileHtml(data) {
             <div>
               <span class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-1">Skor 4 Minggu</span>
               <div class="flex items-baseline gap-1">
-                <span class="text-3xl font-bold ${levelTextClass(status.level)}" data-kpi="status">${escapeHtml(status.percentage)}%</span>
+                <span class="text-3xl font-bold ${levelTextClass(status.level)}" data-kpi="status">${statusText}</span>
               </div>
               <span class="text-xs text-on-surface-variant mt-1 block">Penentu tahap status</span>
             </div>
             <div class="relative w-16 h-16 shrink-0">
               <svg class="w-full h-full -rotate-90" viewBox="0 0 36 36">
                 <circle class="stroke-current text-surface-container" cx="18" cy="18" fill="none" r="15.9" stroke-width="3"></circle>
-                <circle class="stroke-current text-primary-container" cx="18" cy="18" fill="none" r="15.9" stroke-dasharray="${statusPct}, 100" stroke-linecap="round" stroke-width="3"></circle>
+                ${baru ? '' : `<circle class="stroke-current text-primary-container" cx="18" cy="18" fill="none" r="15.9" stroke-dasharray="${statusPct}, 100" stroke-linecap="round" stroke-width="3" data-donut-arc></circle>`}
               </svg>
-              <div class="absolute inset-0 flex items-center justify-center font-bold text-xs">${statusPct}%</div>
+              <div class="absolute inset-0 flex items-center justify-center font-bold text-xs ${baru ? 'text-on-surface-variant' : ''}" data-donut-label>${baru ? '—' : `${statusPct}%`}</div>
             </div>
           </div>
 

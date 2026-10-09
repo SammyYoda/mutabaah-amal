@@ -5,7 +5,7 @@
 
 import { getMatrix } from '../api.js';
 import { escapeHtml } from '../util.js';
-import { bandOf } from './charts.js';
+import { bandOf, levelBadgeClass } from './charts.js';
 import { navigateToMember } from './profilAhli.js';
 
 const APP = "Mutaba'ah Amal";
@@ -30,11 +30,15 @@ function averageClass(val) {
   return 'bg-error-container text-error';
 }
 
+/** R19: a member with nothing expected in the period (no cells) is "Baru" — no band, no failing 0%. */
+export const isBaruRow = (row) => !row.cells || Object.keys(row.cells).length === 0;
+
 /** Rows after the current search / filter / sort. */
 export function visibleRows(rows) {
   const q = searchQuery.trim().toLowerCase();
   const filtered = rows.filter((row) => {
     if (q && !String(row.name).toLowerCase().includes(q)) return false;
+    if (filterTier !== 'all' && isBaruRow(row)) return false; // Baru rows only under "semua"
     if (filterTier === 'a') return bandOf(row.average) === 'A';
     if (filterTier === 'b') return bandOf(row.average) === 'B';
     if (filterTier === 'c') return bandOf(row.average) === 'C';
@@ -76,7 +80,9 @@ function bodyHtml(data) {
           })
           .join('')}
         <td class="sticky right-0 z-20 bg-surface-container-lowest group-hover:bg-surface-container-low px-3 py-2.5 text-center shadow-[-2px_0_4px_rgba(0,0,0,0.03)]">
-          <span class="inline-block px-2 py-0.5 rounded-full font-bold tabular-nums ${averageClass(row.average)}" data-average>${escapeHtml(row.average)}%</span>
+          ${isBaruRow(row)
+            ? `<span class="inline-flex items-center gap-1"><span class="inline-block px-2 py-0.5 rounded-full font-bold text-on-surface-variant" data-average>—</span><span class="px-1.5 rounded border text-[10px] font-bold ${levelBadgeClass(null)}" data-baru>Baru</span></span>`
+            : `<span class="inline-block px-2 py-0.5 rounded-full font-bold tabular-nums ${averageClass(row.average)}" data-average>${escapeHtml(row.average)}%</span>`}
         </td>
       </tr>`,
     )

@@ -85,6 +85,7 @@ describe('Analitik view', () => {
     const b = $('[data-status-badge]');
     expect(b.textContent.trim()).toBe('Baru');
     expect(b.className).not.toMatch(/success-amal|orange-vibrant|error/);
+    expect($('[data-status-pct]').textContent.trim()).toBe('—');
     expect(document.body.textContent).toContain('Belum ada amalan');
   });
 
