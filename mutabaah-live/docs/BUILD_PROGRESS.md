@@ -160,3 +160,7 @@ Task 11: fix round 1/5 (2 addressed, 0 open — logout flushes leave hook first;
 Task 11: complete (commits cbb189e..b93789d, 1 fix round)
 Task 12: dispatched (base 2e570a7, implementer agent af011ee04bb4142ac, sonnet; carries R21, R22)
 Ruling R27: Task 12 — naqib's Bimbingan view hosts the 'Hantar bimbingan' form (to whole usrah or one member from the summary roster) in addition to Profil Ahli's — plan only put sending in Profil Ahli, but usrah-wide guidance (toUserId null) otherwise has no UI; cost: one extra form.
+Task 12: implementer DONE (5a16603) — 281/281, build clean; added naqib Bimbingan nav entry; removed demo inline editing/static avatar/fake card; review dispatched
+Task 12: review — spec ✅, quality Approved (opus); R22 verified both views
+Task 12: minor (deferred): module-level openIds/filter survive logout/login (no data leak; open-unread item not marked read until re-opened; failed mark-read leaves id open); Tetapan filter/toggle refetches; bimbingan tests order-dependent + dead no-op line; prayers targetVal unconstrained client-side; fragile icon selector
+Task 12: complete (commits 294af81..5a16603, review clean)
