@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { makeTestApp, createUser, createTestUsrah, loginAs, api } from './helpers.js';
-import { users, sessions } from '../src/db/schema.js';
+import { users, sessions, memberships } from '../src/db/schema.js';
 import { requireUser } from '../src/auth/guards.js';
 
 const WRONG = 'Emel atau kata laluan salah';
@@ -94,12 +94,34 @@ describe('GET /api/auth/me', () => {
     expect(res.json().user.isAdmin).toBe(true);
   });
 
-  it('returns 401 for a non-admin with no active membership', async () => {
-    const { app, db } = await setup();
-    await createUser(db, { email: 'yatim@usrah.my', name: 'Yatim' });
-    const cookie = await loginAs(app, 'yatim@usrah.my');
+  it('returns 401 for a non-admin whose membership was removed after login', async () => {
+    const { app, db, userId } = await setup();
+    const cookie = await loginAs(app, 'ahmad@usrah.my');
+    db.update(memberships).set({ removedAt: new Date('2026-10-09T03:00:00Z') }).where(eq(memberships.userId, userId)).run();
     const res = await api(app, cookie).get('/api/auth/me');
     expect(res.statusCode).toBe(401);
+  });
+});
+
+describe('login for a non-admin with no active membership', () => {
+  it('returns 403 FORBIDDEN with the fixed message and creates no session or cookie', async () => {
+    const { app, db } = await setup();
+    await createUser(db, { email: 'yatim@usrah.my', name: 'Yatim' });
+    const res = await api(app).post('/api/auth/login', { email: 'yatim@usrah.my', password: 'katalaluan123' });
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toEqual({
+      error: { code: 'FORBIDDEN', message: 'Anda bukan lagi ahli mana-mana usrah. Sila hubungi naqib anda.' },
+    });
+    expect(res.headers['set-cookie']).toBeUndefined();
+    expect(db.select().from(sessions).all()).toHaveLength(0);
+  });
+
+  it('still returns the generic 401 for a wrong password', async () => {
+    const { app, db } = await setup();
+    await createUser(db, { email: 'yatim@usrah.my', name: 'Yatim' });
+    const res = await api(app).post('/api/auth/login', { email: 'yatim@usrah.my', password: 'salah-salah' });
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toEqual({ error: { code: 'UNAUTHENTICATED', message: WRONG } });
   });
 });
 

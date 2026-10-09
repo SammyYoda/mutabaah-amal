@@ -1,4 +1,7 @@
-import { makeTestApp, createUser, createTestUsrah, api } from './helpers.js';
+import { eq } from 'drizzle-orm';
+import { makeTestApp, createUser, createTestUsrah, api, loginAs } from './helpers.js';
+import { users } from '../src/db/schema.js';
+import { verifyPassword } from '../src/auth/password.js';
 
 const ORIGIN = 'http://localhost:3000';
 const ERROR_SHAPE = {
@@ -54,6 +57,41 @@ describe('CSRF / Origin checks', () => {
   it('rejects mutating requests to unknown /api routes with 403 before routing', async () => {
     const { app } = await setup();
     const res = await app.inject({ method: 'DELETE', url: '/api/nothing-here' });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('applies to percent-encoded paths that route to /api (e.g. /%61pi/...)', async () => {
+    const { app, db } = await setup();
+    const cookie = await loginAs(app, 'ahmad@usrah.my');
+
+    const logout = await app.inject({ method: 'POST', url: '/%61pi/auth/logout', headers: { cookie } });
+    expect(logout.statusCode).toBe(403);
+
+    const textPlain = await app.inject({
+      method: 'POST',
+      url: '/%61pi/auth/logout',
+      headers: { cookie, 'content-type': 'text/plain', origin: ORIGIN },
+      payload: 'x',
+    });
+    expect(textPlain.statusCode).toBe(403);
+
+    const change = await app.inject({
+      method: 'POST',
+      url: '/%61pi/auth/change-password',
+      headers: { cookie, 'content-type': 'application/json', origin: 'https://evil.example' },
+      payload: JSON.stringify({ currentPassword: 'katalaluan123', newPassword: 'dirampas123' }),
+    });
+    expect(change.statusCode).toBe(403);
+    expect(change.json().error.code).toBe('FORBIDDEN');
+    const row = db.select().from(users).where(eq(users.email, 'ahmad@usrah.my')).get()!;
+    expect(await verifyPassword(row.passwordHash, 'katalaluan123')).toBe(true);
+    // session still valid (logout was blocked)
+    expect((await api(app, cookie).get('/api/auth/me')).statusCode).toBe(200);
+  });
+
+  it('applies to mutating requests on any path', async () => {
+    const { app } = await setup();
+    const res = await app.inject({ method: 'POST', url: '/anything', headers: { 'content-type': 'text/plain' } });
     expect(res.statusCode).toBe(403);
   });
 

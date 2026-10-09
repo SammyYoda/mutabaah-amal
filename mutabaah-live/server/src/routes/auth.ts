@@ -21,6 +21,7 @@ import { requireUser } from '../auth/guards.js';
 export const normaliseEmail = (email: string) => email.trim().toLowerCase();
 
 const WRONG_CREDENTIALS = 'Emel atau kata laluan salah';
+const NO_MEMBERSHIP = 'Anda bukan lagi ahli mana-mana usrah. Sila hubungi naqib anda.';
 
 export const LOGIN_RATE_LIMIT = { max: 10, timeWindow: '15 minutes' };
 
@@ -77,10 +78,14 @@ export async function authRoutes(app: FastifyInstance) {
       const ok = await verifyPassword(user?.passwordHash ?? (await getDummyHash()), body.password);
       if (!user || !ok) throw new AppError(401, 'UNAUTHENTICATED', WRONG_CREDENTIALS);
 
+      // Checked only after the password, so membership status isn't revealed without it.
+      const membership = getActiveMembership(app.db, user.id);
+      if (!user.isAdmin && !membership) throw new AppError(403, 'FORBIDDEN', NO_MEMBERSHIP);
+
       const now = app.now();
       const token = createSession(app.db, user.id, now);
       setSessionCookie(reply, token, new Date(now.getTime() + SESSION_TTL_MS));
-      return mePayload(app.db, user, getActiveMembership(app.db, user.id));
+      return mePayload(app.db, user, membership);
     },
   );
 

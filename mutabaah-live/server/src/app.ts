@@ -58,9 +58,11 @@ export function buildApp(opts: BuildAppOptions): FastifyInstance {
     return defaultJson(req, text, done);
   });
 
-  // CSRF: every mutating /api request must be JSON from our own origin. Runs before routing to handlers.
+  // CSRF: every mutating request must be JSON from our own origin. Runs before routing to handlers.
+  // Deliberately path-independent: req.url is raw while the router decodes it (/%61pi/... routes to /api/...),
+  // and no mutating routes exist outside /api (static files and the SPA fallback are GET-only).
   app.addHook('onRequest', async (req) => {
-    if (!MUTATING.has(req.method) || !req.url.startsWith('/api/')) return;
+    if (!MUTATING.has(req.method)) return;
     if (!isJson(req.headers['content-type']) || req.headers.origin !== opts.appOrigin) {
       throw new AppError(403, 'FORBIDDEN', MESSAGES.FORBIDDEN);
     }
