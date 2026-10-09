@@ -111,3 +111,12 @@ Task 6: minor → carried to Task 7: PUT /logs merges/re-tags a same-date log fr
 Task 6: minor (deferred): test gaps — __proto__/constructor keys, 401 on /logs, fields map in other-usrah test; redundant DateParam.parse
 Task 6: minor (deferred): weak RED evidence (process only)
 Task 6: complete (commits af763b5..e81cd62, review clean)
+Task 7: dispatched (base 5b27080, implementer agent a16d3ba8936655862, sonnet; carries R4, R13, T6 re-tag fix)
+Ruling R16: rejoin with wrong password for an existing email returns 409 (not 401) — reveals nothing beyond the existing 'Emel sudah didaftarkan'; cost if wrong: a returning user with a typo sees the duplicate-email message.
+Task 7: implementer DONE (0cdd7af, 99da14a, bd05494) — 132/132; review dispatched
+Task 7: review — spec ✅, quality Approved (opus)
+Task 7: minor (deferred): amalan UPDATEs filter by id only (add usrahId for defence in depth)
+Task 7: minor (deferred): reset-password check→await hash→update gap; re-check membership/role inside txn
+Task 7: minor (deferred): naqib reset-password doesn't refuse admin targets (admins can't hold memberships today)
+Task 7: minor (deferred): rejoin path hashes password unnecessarily; notes '' vs null inconsistency on re-tag; re-tag overwrites old-usrah row (plan-mandated unique(user,date))
+Task 7: complete (commits 5b27080..bd05494, review clean)
