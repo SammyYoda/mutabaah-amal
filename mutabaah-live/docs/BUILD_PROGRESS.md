@@ -165,3 +165,9 @@ Task 12: review — spec ✅, quality Approved (opus); R22 verified both views
 Task 12: minor (deferred): module-level openIds/filter survive logout/login (no data leak; open-unread item not marked read until re-opened; failed mark-read leaves id open); Tetapan filter/toggle refetches; bimbingan tests order-dependent + dead no-op line; prayers targetVal unconstrained client-side; fragile icon selector
 Task 12: complete (commits 294af81..5a16603, review clean)
 Task 13: dispatched (base c60cc4a, implementer agent ab17c54eb8c118cf5, opus; carries R19, R22, R25)
+Task 13: implementer DONE (f2741dc, 3280f26) — 329/329, build clean, grep clean; concerns: Ringkasan group 8-week trend + per-amalan ranking dropped (no API), Profil Ahli extra getMatrix call, weekly series 0% before join, remove-member uses window.prompt
+Ruling R28: dropping the demo's Ringkasan group-trend chart and per-amalan ranking is accepted for v1 — no endpoint provides them and the plan didn't ask for one; listed as a follow-up in the final report; cost: Ringkasan is less rich than the demo.
+Task 13: review dispatched (diff f5563a2..HEAD)
+Task 13: review — spec ❌ (R19 Baru missing in Matriks: red 0% + included in Level C filter, test locks it in), quality Needs fixes (opus); no XSS, temp-password handling and confirmations verified
+Ruling R29: reviewer Minor 2 (Baru members shown as "0%" in Profil Ahli KPI/donut/switcher and Analitik header) is folded into the R19 fix — R19 names the profile explicitly; show "—" instead. Minor 1 (pre-join weeks as 0%) stays deferred. — cost: none.
+Task 13: minor (deferred): pre-join weeks render as 0% in Profil Ahli/Analitik charts; admin hostile-string test vacuous; temp-password modal lacks initial focus; Matriks state module-level
