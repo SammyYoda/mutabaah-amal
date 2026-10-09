@@ -286,7 +286,9 @@ function initTetapan(data) {
     $('amalanModalTitle').textContent = item ? 'Sunting Amalan' : 'Tambah Amalan Baharu ke Sukatan';
     $('btnSubmitAmalan').textContent = item ? 'Simpan Perubahan' : 'Tambah ke Sukatan';
     const type = $('amalanInputType');
+    // Input type and frequency are fixed once logs exist (the server answers 409); never sent on edit.
     type.disabled = Boolean(item);
+    $('amalanFreq').disabled = Boolean(item);
     if (item) {
       $('amalanName').value = item.name;
       $('amalanDesc').value = item.description ?? '';
@@ -297,9 +299,17 @@ function initTetapan(data) {
       $('amalanIcon').innerHTML = iconOptions(item.icon);
       $('amalanIcon').value = item.icon;
     }
+    syncTargetMax();
     modal.classList.remove('hidden');
   };
   const closeModal = () => modal.classList.add('hidden');
+  /** Solat 5 waktu counts prayed waktu, so its target is 1-5 (M-2). */
+  const isPrayers = () => $('amalanInputType').value === 'prayers';
+  function syncTargetMax() {
+    if (isPrayers()) $('amalanTarget').max = '5';
+    else $('amalanTarget').removeAttribute('max');
+  }
+  $('amalanInputType').onchange = syncTargetMax;
 
   $('btnOpenAddModal').onclick = () => openModal(null);
   $('btnCloseAddModal').onclick = closeModal;
@@ -361,17 +371,20 @@ function initTetapan(data) {
       showFieldErrors(form, { targetVal: 'Sasaran mesti nombor bulat sekurang-kurangnya 1.' });
       return;
     }
+    if (isPrayers() && targetVal > 5) {
+      showFieldErrors(form, { targetVal: 'Sasaran solat mesti antara 1 dan 5.' });
+      return;
+    }
     const body = {
       name: $('amalanName').value.trim(),
       description: $('amalanDesc').value.trim(),
-      freq: $('amalanFreq').value,
       targetVal,
       unit: $('amalanUnit').value.trim(),
       icon: $('amalanIcon').value,
     };
     try {
       if (editingId === null) {
-        await createAmalan({ ...body, inputType: $('amalanInputType').value });
+        await createAmalan({ ...body, freq: $('amalanFreq').value, inputType: $('amalanInputType').value });
         toast(`Amalan "${body.name}" berjaya ditambah ke dalam sukatan!`, 'success');
       } else {
         await updateAmalan(editingId, body);

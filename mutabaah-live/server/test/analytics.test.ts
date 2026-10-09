@@ -166,6 +166,33 @@ describe('GET /api/usrah/summary', () => {
   });
 });
 
+describe('loggedToday counts only a real entry (M-4)', () => {
+  it('an all-empty row for today does not count; any truthy value or non-empty notes does', async () => {
+    const s = await setup();
+    const NONE = { subuh: false, zohor: false, asar: false, maghrib: false, isya: false };
+    const kpi = async () => (await api(s.app, s.a.naqib.cookie).get('/api/usrah/summary')).json().kpis.loggedToday;
+    expect(await kpi()).toBe(2); // ali + siti
+    s.log(s.budi, TODAY, { [s.P.id]: NONE, [s.C.id]: false }); // opened Hari Ini, ticked and unticked
+    expect(await kpi()).toBe(2);
+    s.db.update(dailyLogs).set({ notes: '   ' }).where(eq(dailyLogs.userId, s.budi)).run();
+    expect(await kpi()).toBe(2); // whitespace-only notes are empty
+    s.db.update(dailyLogs).set({ notes: 'Alhamdulillah' }).where(eq(dailyLogs.userId, s.budi)).run();
+    expect(await kpi()).toBe(3);
+    s.db.update(dailyLogs).set({ notes: null, values: { [s.P.id]: { ...NONE, asar: true } } }).where(eq(dailyLogs.userId, s.budi)).run();
+    expect(await kpi()).toBe(3); // one prayer
+  });
+
+  it('a count of 0 does not count, a count > 0 does', async () => {
+    const s = await setup();
+    const N = s.db.insert(amalan).values({ usrahId: s.a.usrahId, icon: 'x', code: '9', name: 'Tilawah', freq: 'harian', inputType: 'count', targetVal: 5, sort: 9, active: true, createdOn: '2026-08-01' }).returning().get();
+    const kpi = async () => (await api(s.app, s.a.naqib.cookie).get('/api/usrah/summary')).json().kpis.loggedToday;
+    s.log(s.budi, TODAY, { [N.id]: 0 });
+    expect(await kpi()).toBe(2);
+    s.db.update(dailyLogs).set({ values: { [N.id]: 2 } }).where(eq(dailyLogs.userId, s.budi)).run();
+    expect(await kpi()).toBe(3);
+  });
+});
+
 describe('GET /api/usrah/matrix', () => {
   it('omits deactivated amalan; cells equal periodScore; omits cell with 0 expected', async () => {
     const s = await setup();

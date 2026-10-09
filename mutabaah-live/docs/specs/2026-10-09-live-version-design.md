@@ -61,7 +61,12 @@ mutabaah-live/
 
 - **Dev:** Vite serves `web/` and proxies `/api` to Fastify (port 3101).
 - **Production:** a single Node process serves the API and the static `web/` files.
-- **Config** via environment variables: `DATABASE_URL` (default `file:./data/mutabaah.db`), `PORT`, `SESSION_SECRET`, `APP_ORIGIN`.
+- **Config** via environment variables (no session secret is needed: session tokens are random and stored hashed):
+  - `DATABASE_URL` (default `file:./data/mutabaah.db`)
+  - `PORT` (default `3101`) and `HOST` (default `0.0.0.0`)
+  - `APP_ORIGIN` (default `http://localhost:3000`): exact public origin; mutating requests must send it as `Origin`. In production the server warns at startup if it is unset or not `https:`.
+  - `NODE_ENV` (`production` serves `dist/web` and marks the session cookie `Secure`)
+  - `TRUST_PROXY` (default off): a proxy hop count (`1`, `2`, …) or a comma-separated list of trusted proxy IPs/CIDRs; `true` is read as 1 hop with a startup warning; never "trust every hop".
 
 ## 4. Roles & permissions
 

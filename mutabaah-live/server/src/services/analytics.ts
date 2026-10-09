@@ -10,6 +10,15 @@ export const initialsOf = (name: string): string =>
 
 const mean = (xs: number[]) => (xs.length === 0 ? 0 : Math.round(xs.reduce((s, x) => s + x, 0) / xs.length));
 
+/** A log row is a real entry if any value is set (count > 0, check true, any prayer true) or it has notes (M-4). */
+export function hasEntry(row: Pick<LogRow, 'values' | 'notes'>): boolean {
+  if (typeof row.notes === 'string' && row.notes.trim() !== '') return true;
+  const values = row.values && typeof row.values === 'object' ? Object.values(row.values as Record<string, unknown>) : [];
+  return values.some((v) =>
+    typeof v === 'number' ? v > 0 : v === true ? true : !!v && typeof v === 'object' && PRAYERS.some((p) => (v as Record<string, unknown>)[p] === true),
+  );
+}
+
 export type MemberCtx = { today: string; joinedOn: string; amalan: SA[]; logs: SL };
 
 export function windows(today: string) {
@@ -91,7 +100,6 @@ export function memberMetrics(id: number, name: string, ctx: MemberCtx, logRows:
       }
     }
   }
-  const dates = logRows.map((l) => l.date);
   return {
     id, name, initials: initialsOf(name), percentage4w: p4, level: r4.expected === 0 ? null : statusBand(p4).level,
     baru: r4.expected === 0,
@@ -99,7 +107,7 @@ export function memberMetrics(id: number, name: string, ctx: MemberCtx, logRows:
     thisWeek: tw.percentage,
     thisWeekExpected: tw.expected,
     prev4w: { expected: prev.expected, percentage: prev.percentage },
-    loggedToday: dates.includes(ctx.today),
+    loggedToday: logRows.some((l) => l.date === ctx.today && hasEntry(l)),
     prayerPct: days > 0 && prayers.length > 0 ? (trueCount / (5 * days)) * 100 : 0,
     joinedOn: ctx.joinedOn,
   };

@@ -90,6 +90,40 @@ describe('Tetapan view', () => {
     expect($('[data-field-error="targetVal"]').textContent).not.toBe('');
   });
 
+  it('Solat 5 waktu: the target is capped at 5 (create and edit) (M-2)', async () => {
+    await mount();
+    $('#btnOpenAddModal').click();
+    expect($('#amalanFreq').disabled).toBe(false); // only locked when editing
+    fill('#amalanName', 'Solat Berjemaah');
+    fill('#amalanInputType', 'prayers');
+    $('#amalanInputType').dispatchEvent(new Event('change'));
+    expect($('#amalanTarget').max).toBe('5');
+    fill('#amalanTarget', '6');
+    submit();
+    await flush();
+    expect(createAmalan).not.toHaveBeenCalled();
+    expect($('[data-field-error="targetVal"]').textContent).toMatch(/1 dan 5/);
+    fill('#amalanTarget', '5');
+    createAmalan.mockResolvedValue({});
+    submit();
+    await flush();
+    expect(createAmalan).toHaveBeenCalledWith(expect.objectContaining({ inputType: 'prayers', targetVal: 5 }));
+
+    getAmalan.mockResolvedValue([{ ...base, id: 7, code: '07', name: 'Solat Fardhu', freq: 'harian', inputType: 'prayers', targetVal: 5 }]);
+    await mount();
+    $('[data-action="edit"][data-id="7"]').click();
+    expect($('#amalanTarget').max).toBe('5');
+    fill('#amalanTarget', '9');
+    submit();
+    await flush();
+    expect(updateAmalan).not.toHaveBeenCalled();
+    // switching back to another type lifts the cap
+    $('#btnOpenAddModal').click();
+    fill('#amalanInputType', 'count');
+    $('#amalanInputType').dispatchEvent(new Event('change'));
+    expect($('#amalanTarget').max).toBe('');
+  });
+
   it('shows API errors inline and does not reload', async () => {
     await mount();
     $('#btnOpenAddModal').click();
@@ -101,17 +135,19 @@ describe('Tetapan view', () => {
     expect(window.router.renderCurrent).not.toHaveBeenCalled();
   });
 
-  it('edit modal disables Jenis input, patches without inputType, and surfaces a 409 message', async () => {
+  it('edit modal disables Jenis input and Kekerapan, patches without them, and surfaces a 409 message', async () => {
     await mount();
     $('[data-action="edit"][data-id="1"]').click();
     expect($('#amalanInputType').disabled).toBe(true);
     expect($('#amalanInputType').value).toBe('count');
+    expect($('#amalanFreq').disabled).toBe(true);
+    expect($('#amalanFreq').value).toBe('harian');
     expect($('#amalanName').value).toBe('Tilawah');
     fill('#amalanTarget', '7');
     updateAmalan.mockRejectedValueOnce(new ApiError(409, 'CONFLICT', 'Jenis input tidak boleh diubah kerana sudah ada rekod'));
     submit();
     await flush();
-    expect(updateAmalan).toHaveBeenCalledWith(1, { name: 'Tilawah', description: 'Baca Quran', freq: 'harian', targetVal: 7, unit: 'kali', icon: 'menu_book' });
+    expect(updateAmalan).toHaveBeenCalledWith(1, { name: 'Tilawah', description: 'Baca Quran', targetVal: 7, unit: 'kali', icon: 'menu_book' });
     expect($('#amalanFormError').textContent).toBe('Jenis input tidak boleh diubah kerana sudah ada rekod');
     expect(window.router.renderCurrent).not.toHaveBeenCalled();
   });

@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { DEV_API_PORT, DEV_WEB_PORT, PROD_PORT } from './e2e/constants';
+import { DEV_API_PORT, DEV_WEB_PORT, PROD_PORT } from './e2e/constants.js';
 
 export default defineConfig({
   testDir: './e2e',

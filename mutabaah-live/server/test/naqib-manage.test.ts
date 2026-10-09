@@ -118,6 +118,40 @@ describe('amalan CRUD', () => {
   });
 });
 
+describe('amalan minors (R35)', () => {
+  const body = { name: 'Solat Sunat', freq: 'harian', inputType: 'prayers', unit: 'waktu' };
+  it('M-2: prayers targetVal must be 1-5 on POST and PATCH', async () => {
+    const s = await setup();
+    const c = api(s.app, s.a.naqib.cookie);
+    const bad = await c.post('/api/amalan', { ...body, targetVal: 6 });
+    expect(bad.statusCode).toBe(400);
+    expect(bad.json().error).toMatchObject({ code: 'VALIDATION_ERROR', fields: { targetVal: expect.any(String) } });
+    expect((await c.post('/api/amalan', { ...body, targetVal: 0 })).statusCode).toBe(400);
+    const ok = await c.post('/api/amalan', { ...body, targetVal: 5 });
+    expect(ok.statusCode).toBe(201);
+    expect((await c.patch(`/api/amalan/${ok.json().id}`, { targetVal: 6 })).statusCode).toBe(400);
+    expect((await c.patch(`/api/amalan/${ok.json().id}`, { targetVal: 3 })).json()).toMatchObject({ targetVal: 3 });
+    // switching an unused count item with target 10 to prayers needs a 1-5 target too
+    const count = (await c.post('/api/amalan', { ...body, inputType: 'count', targetVal: 10 })).json();
+    expect((await c.patch(`/api/amalan/${count.id}`, { inputType: 'prayers' })).statusCode).toBe(400);
+    expect((await c.patch(`/api/amalan/${count.id}`, { inputType: 'prayers', targetVal: 4 })).statusCode).toBe(200);
+    // other input types keep the wide range
+    expect((await c.post('/api/amalan', { ...body, inputType: 'count', targetVal: 600 })).statusCode).toBe(201);
+  });
+  it('M-3: freq change blocked once logged (409); allowed otherwise; same freq ok', async () => {
+    const s = await setup();
+    const items = await s.list(s.a.naqib.cookie);
+    const [used, unused] = items.filter((x) => x.freq === 'harian' && x.inputType === 'count');
+    await api(s.app, s.memberCookie).put('/api/logs/2026-10-08', { values: { [used.id]: 3 } });
+    const c = api(s.app, s.a.naqib.cookie);
+    const r = await c.patch(`/api/amalan/${used.id}`, { freq: 'mingguan' });
+    expect(r.statusCode).toBe(409);
+    expect(r.json().error).toEqual({ code: 'CONFLICT', message: 'Kekerapan tidak boleh diubah kerana sudah ada rekod' });
+    expect((await c.patch(`/api/amalan/${used.id}`, { freq: 'harian', name: 'ok' })).statusCode).toBe(200);
+    expect((await c.patch(`/api/amalan/${unused.id}`, { freq: 'mingguan' })).json()).toMatchObject({ freq: 'mingguan' });
+  });
+});
+
 describe('invite code', () => {
   it('get and regenerate', async () => {
     const s = await setup();

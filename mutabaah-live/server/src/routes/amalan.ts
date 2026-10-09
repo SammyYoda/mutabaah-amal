@@ -27,6 +27,15 @@ export function serializeAmalan(r: AmalanRow) {
 }
 
 export const INPUT_TYPE_LOCKED = 'Jenis input tidak boleh diubah kerana sudah ada rekod';
+export const FREQ_LOCKED = 'Kekerapan tidak boleh diubah kerana sudah ada rekod';
+const PRAYERS_TARGET = 'Sasaran solat mesti antara 1 dan 5';
+
+/** 'prayers' items count prayed waktu (max 5), so their target must be 1-5 (M-2). */
+function checkPrayersTarget(inputType: string, targetVal: number) {
+  if (inputType === 'prayers' && (targetVal < 1 || targetVal > 5)) {
+    throw new AppError(400, 'VALIDATION_ERROR', MESSAGES.VALIDATION_ERROR, { targetVal: PRAYERS_TARGET });
+  }
+}
 
 const Fields = {
   code: z.string().trim().min(1).max(20),
@@ -106,6 +115,7 @@ export async function amalanRoutes(app: FastifyInstance) {
   app.post('/amalan', { preHandler: requireNaqib }, async (req, reply) => {
     const usrahId = usrahIdOf(req);
     const b = parseBody(CreateBody, req.body);
+    checkPrayersTarget(b.inputType, b.targetVal);
     const today = todayKL(app.now());
     const row = app.db.transaction((tx) => {
       const all = tx.select({ code: amalan.code, sort: amalan.sort }).from(amalan).where(eq(amalan.usrahId, usrahId)).all();
@@ -137,14 +147,18 @@ export async function amalanRoutes(app: FastifyInstance) {
     const usrahId = usrahIdOf(req);
     const existing = findOwn(app, usrahId, (req.params as { id: string }).id);
     const b = parseBody(PatchBody, req.body);
-    if (b.inputType !== undefined && b.inputType !== existing.inputType) {
-      const used = app.db
+    if (b.inputType !== undefined || b.targetVal !== undefined) {
+      checkPrayersTarget(b.inputType ?? existing.inputType, b.targetVal ?? existing.targetVal);
+    }
+    // Once any log holds a value for this amalan, its input type and frequency are fixed.
+    const isUsed = () =>
+      !!app.db
         .select({ id: dailyLogs.id })
         .from(dailyLogs)
         .where(and(eq(dailyLogs.usrahId, usrahId), sql`json_extract(${dailyLogs.values}, '$."' || ${String(existing.id)} || '"') IS NOT NULL`))
         .get();
-      if (used) throw new AppError(409, 'CONFLICT', INPUT_TYPE_LOCKED);
-    }
+    if (b.inputType !== undefined && b.inputType !== existing.inputType && isUsed()) throw new AppError(409, 'CONFLICT', INPUT_TYPE_LOCKED);
+    if (b.freq !== undefined && b.freq !== existing.freq && isUsed()) throw new AppError(409, 'CONFLICT', FREQ_LOCKED);
     const { active, ...rest } = b;
     if (active === true && !existing.active) return serializeAmalan(reactivate(app, existing, rest));
     const set: Partial<typeof amalan.$inferInsert> = { ...rest };

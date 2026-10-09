@@ -383,4 +383,29 @@ describe('AppRouter header', () => {
     await vi.waitFor(() => expect(route()).toBe('#login'));
     expect(fetchMock.mock.calls.some(([url, o]) => url === '/api/auth/logout' && o.method === 'POST')).toBe(true);
   });
+
+  it('logout on a network failure toasts "Gagal log keluar — cuba lagi" and stays logged in on the page (M-1)', async () => {
+    const fetchMock = mockApi(MEMBER);
+    history.replaceState(null, '', '#hari-ini');
+    window.showToast = vi.fn();
+    const router = new AppRouter();
+    await router.handleRoute();
+    const meCalls = () => fetchMock.mock.calls.filter(([u]) => u === '/api/auth/me').length;
+    const before = meCalls();
+    fetchMock.mockImplementation(async (url) => {
+      if (url === '/api/auth/logout') throw new TypeError('Failed to fetch');
+      if (url === '/api/auth/me') return json(200, MEMBER);
+      if (url === '/api/notifications') return json(200, []);
+      if (url === '/api/amalan') return json(200, []);
+      if (url.startsWith('/api/logs?')) return json(200, { logs: [], today: '2026-10-09', editableFrom: '2026-10-01' });
+      return json(404, { error: { code: 'NOT_FOUND', message: 'x' } });
+    });
+    await router.logout();
+    expect(window.showToast).toHaveBeenCalledWith('Gagal log keluar — cuba lagi', 'error');
+    expect(route()).toBe('#hari-ini');
+    expect(router.me).toEqual(MEMBER);
+    expect(meCalls()).toBe(before); // the cached session was kept (no refetch of /auth/me)
+    expect(main().querySelector('#hari-ini-root')).not.toBeNull(); // the page is re-initialised, usable again
+    expect(header().querySelector('#btnLogout')).not.toBeNull();
+  });
 });

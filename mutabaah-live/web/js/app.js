@@ -433,8 +433,15 @@ export class AppRouter {
     await this.runLeaveHook();
     try {
       await logout();
-    } catch {
-      /* the server always clears the cookie; ignore network errors and leave anyway */
+    } catch (err) {
+      if (/** @type {any} */ (err)?.status === 0) {
+        // Never reached the server: the session is still valid there, so stay logged in (M-1).
+        // The leave hook has closed the page; re-render it so it is usable again.
+        window.showToast?.('Gagal log keluar — cuba lagi', 'error');
+        await this.handleRoute();
+        return;
+      }
+      /* any server answer: it clears the cookie regardless, so leave */
     }
     clearSession();
     this.me = null;

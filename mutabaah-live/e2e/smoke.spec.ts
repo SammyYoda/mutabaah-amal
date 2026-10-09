@@ -1,5 +1,5 @@
 import { test, expect, type Browser, type Page } from '@playwright/test';
-import { ADMIN } from './constants';
+import { ADMIN } from './constants.js';
 
 const PASSWORD = 'kata-laluan-ujian';
 const stamp = Date.now();
