@@ -164,3 +164,4 @@ Task 12: implementer DONE (5a16603) — 281/281, build clean; added naqib Bimbin
 Task 12: review — spec ✅, quality Approved (opus); R22 verified both views
 Task 12: minor (deferred): module-level openIds/filter survive logout/login (no data leak; open-unread item not marked read until re-opened; failed mark-read leaves id open); Tetapan filter/toggle refetches; bimbingan tests order-dependent + dead no-op line; prayers targetVal unconstrained client-side; fragile icon selector
 Task 12: complete (commits 294af81..5a16603, review clean)
+Task 13: dispatched (base c60cc4a, implementer agent ab17c54eb8c118cf5, opus; carries R19, R22, R25)
