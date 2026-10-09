@@ -71,3 +71,20 @@ Task 3: review — spec ✅, quality Approved
 Task 3: minor (deferred): no lookup indexes on FKs (memberships.usrah_id, amalan.usrah_id, daily_logs.usrah_id, guidance.usrah_id, notifications.user_id, guidance_replies.guidance_id)
 Task 3: minor (deferred): openDb handles only `file:` prefix (no file:// or query string); NewAmalan/Amalan types live in client.ts; no tests for parent-dir creation / session cascade / cwd-independent migrations
 Task 3: complete (commits ec8910a..0ea4403, review clean)
+Task 4: dispatched (base 0871596, implementer agent a3d3b6b0d84479d9b, opus; carries R1, R2)
+Ruling R7: Task 4 — mutating requests with JSON content-type and an EMPTY body are accepted as `{}` (custom parser) — otherwise POST /auth/logout etc. would 400 under the CSRF content-type rule; cost if wrong: none (still JSON-typed).
+Ruling R8: Task 4 — login on unknown email still runs argon2 verify on a dummy hash — prevents timing-based email enumeration (spec §6 generic message intent); cost: ~1 hash per failed login.
+Task 4: implementer DONE_WITH_CONCERNS (af5390c) — 74/74 tests; concerns: req.user typed non-null; removed member can log in but /me 401s; no trustProxy; CSP allows inline + Tailwind CDN; create-admin echoes password
+Ruling R9: trustProxy — add `TRUST_PROXY` env (default off) in Task 14 README/index.ts so rate-limit keys use the client IP behind a reverse proxy; cost if wrong: behind a proxy, limits key on proxy IP + email (still per-email).
+Ruling R10: CSP allowing inline scripts/styles + cdn.tailwindcss.com + Google Fonts is accepted — the demo SPA uses Tailwind CDN with an inline config; tightening needs a Tailwind build step (out of v1 scope); cost: weaker XSS defence-in-depth.
+Task 4: review dispatched
+Task 4: review — Needs fixes. Critical: CSRF/Origin check bypassable via percent-encoded prefix (/%61pi/...) — reproduced cross-origin password change. Important (plan-mandated): removed member gets a session at login but /me 401s.
+Ruling R11: login for a non-admin with no active membership → 403 FORBIDDEN "Anda bukan lagi ahli mana-mana usrah. Sila hubungi naqib anda.", no session created — spec §5.6 "loses access"; cost if wrong: removed users get a clear message instead of a silent bounce (no downside found).
+Task 4: minor (deferred): CSRF 403s lack helmet headers (hook registered before helmet)
+Task 4: minor (deferred): 413/415 returned with code VALIDATION_ERROR (non-table status)
+Task 4: minor (deferred): APP_ORIGIN compared as exact string — normalise via new URL().origin
+Task 4: minor (deferred): req.user typed non-null though null on unguarded routes
+Task 4: minor (deferred): create-admin echoes password
+Task 4: minor (deferred): no rate limit on change-password
+Task 4: minor (deferred): expired sessions only deleted on lookup (no sweep)
+Task 4: fix round 1/5 dispatched (fix base af5390c; resumed implementer a3d3b6b0d84479d9b)
