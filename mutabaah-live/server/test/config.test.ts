@@ -1,4 +1,4 @@
-import { parseTrustProxy } from '../src/config.js';
+import { parseTrustProxy, productionWarnings } from '../src/config.js';
 
 describe('parseTrustProxy (TRUST_PROXY env)', () => {
   it.each([undefined, '', '0', 'false', 'FALSE', ' false '])('%j -> off', (raw) => {
@@ -27,5 +27,34 @@ describe('parseTrustProxy (TRUST_PROXY env)', () => {
 
   it.each(['yes', '-1', '1.5', '10.0.0.0/99', 'not-an-ip,127.0.0.1', 'loopback'])('rejects %j', (raw) => {
     expect(() => parseTrustProxy(raw)).toThrow(/TRUST_PROXY/);
+  });
+});
+
+describe('productionWarnings (APP_ORIGIN in production)', () => {
+  it('warns when NODE_ENV=production and APP_ORIGIN is unset', () => {
+    const w = productionWarnings({ NODE_ENV: 'production' });
+    expect(w).toHaveLength(1);
+    expect(w[0]).toMatch(/APP_ORIGIN/);
+    expect(w[0]).toMatch(/403/);
+  });
+
+  it('warns when APP_ORIGIN is not https: in production', () => {
+    expect(productionWarnings({ NODE_ENV: 'production', APP_ORIGIN: 'http://mutabaah.example.org' })[0]).toMatch(/https/);
+  });
+
+  it('is quiet for an https origin in production, and outside production', () => {
+    expect(productionWarnings({ NODE_ENV: 'production', APP_ORIGIN: 'https://mutabaah.example.org' })).toEqual([]);
+    expect(productionWarnings({ APP_ORIGIN: 'http://localhost:3000' })).toEqual([]);
+    expect(productionWarnings({})).toEqual([]);
+  });
+});
+
+describe('package.json (production install, R34)', () => {
+  it('tsx is a runtime dependency, so npm start works after npm ci --omit=dev', async () => {
+    const { readFileSync } = await import('node:fs');
+    const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
+    expect(pkg.dependencies.tsx).toBeDefined();
+    expect(pkg.devDependencies.tsx).toBeUndefined();
+    expect(pkg.scripts.start).toContain('tsx ');
   });
 });

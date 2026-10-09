@@ -3,7 +3,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb, migrateDb, closeDb } from './db/client.js';
 import { buildApp } from './app.js';
-import { parseTrustProxy } from './config.js';
+import { parseTrustProxy, productionWarnings } from './config.js';
 
 const DATABASE_URL = process.env.DATABASE_URL ?? 'file:./data/mutabaah.db';
 const PORT = Number(process.env.PORT ?? 3101);
@@ -22,6 +22,7 @@ const app = buildApp({ db, appOrigin: APP_ORIGIN, staticDir, logger: true, trust
 try {
   await app.listen({ port: PORT, host: HOST });
   if (trustProxyWarning) app.log.warn(trustProxyWarning);
+  for (const w of productionWarnings(process.env)) app.log.warn(w);
   if (process.env.NODE_ENV === 'production' && !staticDir) {
     app.log.warn(`${webDir} not found — run "npm run build"; serving /api only`);
   }

@@ -21,9 +21,19 @@ Vite proxies `/api` to the API on port 3101 (override with `API_URL`).
 ## Production
 
 ```bash
-npm run build          # builds the SPA into dist/web
-npm start              # NODE_ENV=production; Fastify serves the API and dist/web
+npm ci                     # all dependencies: the build needs dev dependencies (Vite)
+npm run build              # builds the SPA into dist/web
+npm prune --omit=dev       # optional: drop dev dependencies once dist/web exists
+APP_ORIGIN=https://mutabaah.example.org npm start   # NODE_ENV=production; Fastify serves the API and dist/web
 ```
+
+`npm start` runs the TypeScript server with `tsx`, which is a runtime dependency, so it works after
+`npm ci --omit=dev` / `npm prune --omit=dev` as long as `dist/web` was built first (on this machine or
+copied in). `npm run build` itself needs the dev dependencies, so build before pruning.
+
+In production the server logs a warning at startup if `APP_ORIGIN` is unset or not `https:`: every
+login (and every other POST/PUT/PATCH/DELETE) is rejected with 403 unless the browser's origin matches
+`APP_ORIGIN` exactly.
 
 | Variable | Default | Meaning |
 |---|---|---|

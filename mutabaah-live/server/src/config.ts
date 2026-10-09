@@ -45,3 +45,26 @@ export function fastifyTrustProxy(tp: TrustProxySetting | undefined): false | st
   if (typeof tp === 'number') return (_addr: string, i: number) => i < tp;
   return tp;
 }
+
+/**
+ * Startup warnings for a production config that would make logins fail (R34): the CSRF check rejects
+ * every mutating request (login included) with 403 unless its Origin equals APP_ORIGIN exactly.
+ */
+export function productionWarnings(env: { NODE_ENV?: string; APP_ORIGIN?: string }): string[] {
+  if (env.NODE_ENV !== 'production') return [];
+  const origin = env.APP_ORIGIN?.trim();
+  if (!origin) {
+    return [
+      'APP_ORIGIN is not set (defaulting to http://localhost:3000). In production every login and other POST/PUT/PATCH/DELETE ' +
+        'is rejected with 403 unless the browser\'s origin matches APP_ORIGIN exactly. Set APP_ORIGIN to the public https:// URL, ' +
+        'e.g. APP_ORIGIN=https://mutabaah.example.org',
+    ];
+  }
+  if (!origin.startsWith('https:')) {
+    return [
+      `APP_ORIGIN=${origin} is not https:. The session cookie is Secure in production, so it is not kept over plain http, ` +
+        'and logins are rejected with 403 if APP_ORIGIN does not match the URL in the browser. Use the public https:// origin.',
+    ];
+  }
+  return [];
+}
