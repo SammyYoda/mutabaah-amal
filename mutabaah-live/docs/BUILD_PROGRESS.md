@@ -44,7 +44,7 @@ Tracked mirror (committed after each task): mutabaah-live/docs/BUILD_PROGRESS.md
 - Ruling R5: `mutabaah-live/.gitignore` re-includes `!package-lock.json` so installs are reproducible — root .gitignore ignores lockfiles repo-wide; if wrong, one extra tracked file.
 
 ## Blockers
-(none)
+(none open)
 
 ## Task log
 Task 1: dispatched (base b9b5808, implementer agent af916bd596c338e5f, sonnet)
@@ -87,4 +87,7 @@ Task 4: minor (deferred): req.user typed non-null though null on unguarded route
 Task 4: minor (deferred): create-admin echoes password
 Task 4: minor (deferred): no rate limit on change-password
 Task 4: minor (deferred): expired sessions only deleted on lookup (no sweep)
-Task 4: fix round 1/5 dispatched (fix base af5390c; resumed implementer a3d3b6b0d84479d9b)
+Task 4: fix round 1/5 dispatched (fix base 557e786; resumed implementer a3d3b6b0d84479d9b)
+Task 4: fix round 1/5 (2 addressed, 0 open — CSRF check now path-independent, R11 login refusal; commits 557e786..d89facd)
+Task 4: minor (deferred): any future non-JSON mutating endpoint will need a deliberate CSRF-hook exemption
+Task 4: complete (commits 0871596..d89facd, 1 fix round)
