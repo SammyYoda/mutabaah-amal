@@ -91,3 +91,14 @@ Task 4: fix round 1/5 dispatched (fix base 557e786; resumed implementer a3d3b6b0
 Task 4: fix round 1/5 (2 addressed, 0 open — CSRF check now path-independent, R11 login refusal; commits 557e786..d89facd)
 Task 4: minor (deferred): any future non-JSON mutating endpoint will need a deliberate CSRF-hook exemption
 Task 4: complete (commits 0871596..d89facd, 1 fix round)
+Task 5: dispatched (base 838a470, implementer agent a9f132333e43bd6e5, sonnet) — interfaces.md created for later dispatches
+Ruling R12: naqib invite for a usrah that already has a naqib is allowed (co-naqib) — spec doesn't forbid it and it supports handover; cost if wrong: admin could add a second naqib unintentionally.
+Task 5: implementer DONE (3dd1fa9) — 93/93; review dispatched
+Task 5: review — spec ✅, quality Approved (⚠️ rejoin of removed user → resolved by R13)
+Ruling R13: rejoin (spec §5.6) — POST /auth/signup with an EXISTING email whose password matches, whose user is non-admin with NO active membership, plus a valid inviteCode/naqibInvite → creates a new membership (name/phone unchanged), logs in, 201. Any other existing-email case stays 409 "Emel sudah didaftarkan". Owned by Task 7 (member removal). — spec §5.6 promises rejoin with a code; cost if wrong: one extra signup branch.
+Task 5: minor (deferred): naqib invite usedAt update not conditional (relies on sync transaction; add isNull(usedAt)+changes check for multi-process)
+Task 5: minor (deferred): argon2 runs before code validation (bounded by 10/h/IP)
+Task 5: minor (deferred): createUsrah uses new Date() for usrah.createdAt (ignores injected clock)
+Task 5: minor (deferred): admin.ts correlated subqueries reference bare `usrah.id`; confusing usedAt test predicate; helpers token parsing
+Task 5: minor (deferred): test gaps — notification link, 409 leaves invite unused, naqib-invite unknown usrah 404, admin 403 with plain member
+Task 5: complete (commits 838a470..3dd1fa9, review clean)
