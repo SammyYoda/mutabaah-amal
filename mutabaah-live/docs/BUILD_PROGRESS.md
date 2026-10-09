@@ -132,3 +132,10 @@ Task 8: fix round 1/5 dispatched (fix base 5053fa8; resumed implementer ab15b7c2
 Task 8: fix round 1/5 (1 addressed, 0 open — R19 in-progress today + 'Baru' status; drop alert also needs thisWeek expected > 0; commits 5053fa8..d5b1a02)
 Task 8: minor (deferred): prayerAvg4w still includes Baru members as 0
 Task 8: complete (commits 76f359f..d5b1a02, 1 fix round)
+Task 9: dispatched (base cb1c720, implementer agent aa366921d482ce0a8, sonnet)
+Ruling R20: guidance reply notifications — member reply → all active naqibs; naqib reply → recipient (or all active members for usrah-wide); never the reply author; naqib's own items count as read — plan said only 'notifies the other party'; cost if wrong: extra/missing notifications.
+Task 9: implementer DONE (18385d3) — 158/158; review dispatched
+Task 9: review — spec ✅, quality Approved (opus)
+Ruling R21: replies on a usrah-wide guidance item are visible to every member of the usrah (group thread); personal items stay private to member + naqib — matches "replies belong to the visible item"; cost if wrong: members see each other's replies on group notes (UI can label it "Perbincangan usrah").
+Task 9: minor (deferred): no test for in-usrah member /read on another's personal item; naqib reply to a removed recipient still notifies them; GET /guidance unbounded; visibleItem `as any`; 50-notification limit untested; co-naqibs not notified of usrah-wide items/replies
+Task 9: complete (commits cb1c720..18385d3, review clean)
