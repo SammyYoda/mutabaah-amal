@@ -47,3 +47,10 @@ Tracked mirror (committed after each task): mutabaah-live/docs/BUILD_PROGRESS.md
 (none)
 
 ## Task log
+Task 1: dispatched (base b9b5808, implementer agent af916bd596c338e5f, sonnet)
+Task 1: implementer DONE (783a06e); review dispatched
+Task 1: ⚠️ items resolved by controller — lockfile tracked; vitest 5.0.3 / typescript 7.0.2 / @types/node 26.6.4 installed and real; 13/13 pass on re-run
+Task 1: minor (deferred): dates.test.js lacks leap-day addDays, weekStart Mon/Sun, 2024-12-30→2025-W01 cases
+Task 1: minor (deferred): tsconfig lacks `types: ["vitest/globals"]` — test type-check may complain later
+Task 1: minor (deferred): dates.js has no input validation (malformed date → NaN); API layer validates
+Task 1: complete (commits b9b5808..783a06e, review clean)
