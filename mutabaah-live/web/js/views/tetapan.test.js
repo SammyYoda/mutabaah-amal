@@ -175,4 +175,17 @@ describe('Tetapan view', () => {
     expect(document.querySelector('img')).toBeNull();
     expect($('#amalanName').value).toBe(evil);
   });
+
+  it('hides a deactivated row superseded by an active row with the same code (R31), and older inactive duplicates', async () => {
+    getAmalan.mockResolvedValue([
+      ...AMALAN,
+      { ...base, id: 4, code: '01', name: 'Tilawah (lama)', freq: 'harian', inputType: 'count', targetVal: 5, active: false, deactivatedOn: '2026-09-01' },
+      { ...base, id: 5, code: '03', name: 'Wirid Lebih Lama', freq: 'harian', inputType: 'check', targetVal: 1, active: false, deactivatedOn: '2026-08-01' },
+    ]);
+    await mount();
+    $('#toggleInactive').click();
+    await mount();
+    expect($$('#amalanTableBody tr[data-id]').map((r) => r.dataset.id)).toEqual(['1', '2', '3']);
+    expect($('#toggleInactive').parentElement.textContent).toContain('(1)');
+  });
 });

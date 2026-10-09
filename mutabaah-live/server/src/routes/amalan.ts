@@ -66,6 +66,31 @@ export function usrahIdOf(req: { membership: { usrahId: number } | null }): numb
   return req.membership.usrahId;
 }
 
+export const ALREADY_ACTIVE = 'Amalan ini sudah aktif';
+
+/**
+ * Re-activation (R31): the deactivated row keeps its [createdOn, deactivatedOn) window so past scores
+ * never change; a NEW row (same code and fields, plus any fields in the same PATCH) starts today.
+ */
+function reactivate(app: FastifyInstance, existing: AmalanRow, changes: Partial<typeof amalan.$inferInsert>): AmalanRow {
+  return app.db.transaction((tx) => {
+    if (existing.code != null) {
+      const live = tx
+        .select({ id: amalan.id })
+        .from(amalan)
+        .where(and(eq(amalan.usrahId, existing.usrahId), eq(amalan.code, existing.code), eq(amalan.active, true)))
+        .get();
+      if (live) throw new AppError(409, 'CONFLICT', ALREADY_ACTIVE);
+    }
+    const { id: _id, ...copy } = existing;
+    return tx
+      .insert(amalan)
+      .values({ ...copy, ...changes, active: true, createdOn: todayKL(app.now()), deactivatedOn: null })
+      .returning()
+      .get();
+  });
+}
+
 export async function amalanRoutes(app: FastifyInstance) {
   app.get('/amalan', { preHandler: requireUser }, async (req) => {
     const usrahId = usrahIdOf(req);
@@ -121,10 +146,11 @@ export async function amalanRoutes(app: FastifyInstance) {
       if (used) throw new AppError(409, 'CONFLICT', INPUT_TYPE_LOCKED);
     }
     const { active, ...rest } = b;
+    if (active === true && !existing.active) return serializeAmalan(reactivate(app, existing, rest));
     const set: Partial<typeof amalan.$inferInsert> = { ...rest };
-    if (active !== undefined) {
-      set.active = active;
-      set.deactivatedOn = active ? null : (existing.active ? todayKL(app.now()) : existing.deactivatedOn);
+    if (active === false && existing.active) {
+      set.active = false;
+      set.deactivatedOn = todayKL(app.now());
     }
     if (Object.keys(set).length === 0) return serializeAmalan(existing);
     return serializeAmalan(app.db.update(amalan).set(set).where(eq(amalan.id, existing.id)).returning().get());

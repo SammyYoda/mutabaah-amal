@@ -141,7 +141,24 @@ function formFieldsHtml() {
     </div>`;
 }
 
-function renderTetapan({ amalan, invite }) {
+/**
+ * Re-activation creates a new row (R31), so a code can have several rows. Hide a deactivated row when
+ * an active row with the same code exists, and show only the most recently deactivated of several inactive ones.
+ */
+export function visibleAmalan(list) {
+  const activeCodes = new Set(list.filter((a) => a.active && a.code != null).map((a) => a.code));
+  const newestInactive = new Map();
+  for (const a of list) {
+    if (a.active || a.code == null) continue;
+    const prev = newestInactive.get(a.code);
+    const newer = !prev || (a.deactivatedOn ?? '') > (prev.deactivatedOn ?? '') || ((a.deactivatedOn ?? '') === (prev.deactivatedOn ?? '') && a.id > prev.id);
+    if (newer) newestInactive.set(a.code, a);
+  }
+  return list.filter((a) => a.active || a.code == null || (!activeCodes.has(a.code) && newestInactive.get(a.code) === a));
+}
+
+function renderTetapan({ amalan: all, invite }) {
+  const amalan = visibleAmalan(all);
   const activeCount = amalan.filter((a) => a.active).length;
   const inactiveCount = amalan.length - activeCount;
   const usrahName = getSession()?.usrah?.name;

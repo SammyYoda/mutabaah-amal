@@ -62,10 +62,38 @@ describe('amalan CRUD', () => {
     const off = await c.patch(`/api/amalan/${id}`, { active: false });
     expect(off.json()).toMatchObject({ active: false, deactivatedOn: '2026-10-09' });
     expect((await s.list(s.a.naqib.cookie)).find((x) => x.id === id)).toMatchObject({ active: false, deactivatedOn: '2026-10-09' });
-    expect((await c.patch(`/api/amalan/${id}`, { active: true })).json()).toMatchObject({ active: true, deactivatedOn: null });
-    const del = await c.del(`/api/amalan/${id}`);
+    const del = await c.del(`/api/amalan/${id}`); // already inactive: idempotent
     expect(del.statusCode).toBe(200);
     expect(del.json()).toMatchObject({ id, active: false, deactivatedOn: '2026-10-09' });
+  });
+  it('re-activation creates a new row (R31); the old row stays deactivated; double re-activate -> 409', async () => {
+    const s = await setup();
+    const c = api(s.app, s.a.naqib.cookie);
+    s.setNow('2026-09-01T02:00:00.000Z');
+    const old = (await s.list(s.a.naqib.cookie))[0];
+    await c.patch(`/api/amalan/${old.id}`, { name: 'Diubah', targetVal: 7, description: 'd', unit: 'u', icon: 'star', sort: 42 });
+    await c.patch(`/api/amalan/${old.id}`, { active: false });
+    s.setNow('2026-10-09T02:00:00.000Z');
+    const re = await c.patch(`/api/amalan/${old.id}`, { active: true });
+    expect(re.statusCode).toBe(200);
+    const fresh = re.json();
+    expect(fresh.id).not.toBe(old.id);
+    expect(fresh).toEqual({
+      id: fresh.id, code: old.code, name: 'Diubah', description: 'd', freq: old.freq, inputType: old.inputType,
+      targetVal: 7, unit: 'u', icon: 'star', sort: 42, active: true, createdOn: '2026-10-09', deactivatedOn: null,
+    });
+    const all = await s.list(s.a.naqib.cookie);
+    expect(all.find((x) => x.id === old.id)).toMatchObject({ active: false, deactivatedOn: '2026-09-01' });
+    expect(all.find((x) => x.id === fresh.id)).toMatchObject({ active: true });
+    const again = await c.patch(`/api/amalan/${old.id}`, { active: true });
+    expect(again.statusCode).toBe(409);
+    expect(again.json().error).toEqual({ code: 'CONFLICT', message: 'Amalan ini sudah aktif' });
+    expect((await s.list(s.a.naqib.cookie)).length).toBe(all.length);
+    // PATCH active:true on an already-active row is a no-op, not a copy
+    const same = await c.patch(`/api/amalan/${fresh.id}`, { active: true });
+    expect(same.statusCode).toBe(200);
+    expect(same.json().id).toBe(fresh.id);
+    expect((await s.list(s.a.naqib.cookie)).length).toBe(all.length);
   });
   it('other usrah amalan -> 404', async () => {
     const s = await setup();

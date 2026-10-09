@@ -260,3 +260,25 @@ describe('GET /api/members/:id', () => {
     expect((await api(s.app, s.aliCookie).get(`/api/members/${s.siti}`)).statusCode).toBe(403);
   });
 });
+
+describe('re-activating an amalan does not rewrite past scores (R31)', () => {
+  it('periodScore over a past window is identical before and after deactivate -> reactivate', async () => {
+    const s = await setup();
+    const c = api(s.app, s.a.naqib.cookie);
+    // deactivated on 2026-09-20 ...
+    s.setNow('2026-09-20T02:00:00.000Z');
+    expect((await c.patch(`/api/amalan/${s.C.id}`, { active: false })).json()).toMatchObject({ deactivatedOn: '2026-09-20' });
+    s.setNow('2026-10-09T02:00:00.000Z');
+    const PAST = { from: FROM4W, to: '2026-10-08', today: TODAY, joinedOn: '2026-09-01' };
+    const items = async () => (await c.get('/api/amalan')).json() as any[];
+    const before = periodScore(await items(), logsOf(s, s.ali), PAST);
+    const weeklyBefore = (await c.get(`/api/members/${s.ali}`)).json().weekly;
+    // ... and re-activated today
+    const re = await c.patch(`/api/amalan/${s.C.id}`, { active: true });
+    expect(re.statusCode).toBe(200);
+    const after = periodScore(await items(), logsOf(s, s.ali), PAST);
+    expect(after).toEqual(before);
+    const weeklyAfter = (await c.get(`/api/members/${s.ali}`)).json().weekly;
+    expect(weeklyAfter.slice(0, -1)).toEqual(weeklyBefore.slice(0, -1)); // every completed week unchanged
+  });
+});

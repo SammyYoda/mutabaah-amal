@@ -142,7 +142,7 @@ notifications   id, user_id, type, text, link, created_at, read_at
 
 Deactivated amalan keep their id, so historical values remain meaningful. Amalan are never hard-deleted once any log references them.
 
-An amalan counts toward a day's score only if `created_on ≤ day` and (`deactivated_on` is NULL or `day < deactivated_on`). Adding or deactivating an amalan therefore never changes past scores. Editing a **target** applies retroactively (targets are not versioned in v1).
+An amalan counts toward a day's score only if `created_on ≤ day` and (`deactivated_on` is NULL or `day < deactivated_on`). Adding or deactivating an amalan therefore never changes past scores. **Re-activating** a deactivated amalan (`PATCH /amalan/:id {active:true}`) never clears `deactivated_on`: it creates a **new row** in the same usrah with the same code and fields, `created_on` = today and `active` = true, and the old row keeps its window (409 if an active row with that code already exists). Re-activation therefore never changes past scores either; Tetapan hides a deactivated row once an active row with its code exists. Editing a **target** applies retroactively (targets are not versioned in v1).
 
 ## 8. Scoring (`shared/score.js`)
 
@@ -159,6 +159,7 @@ Pure functions used by both server and browser so numbers always agree.
 - **New members:** a member's period scores start from their membership `joined_at` date; days before joining are neither expected nor met.
 - **In-progress and partial periods:** an unmet mingguan/bulanan period counts in *items expected* only if it is completed (does not contain today) and began on or after the member's joined date; an in-progress period, or one the member joined partway through, counts only if already met, so scores do not drop at the start of every week/month. The same applies to today's harian items: today is still in progress, so a harian item dated today counts in *items expected* only if already met (past days are unchanged; the live daily score ring is unaffected).
 - **"Baru" status:** a member with nothing expected over the last 4 weeks (e.g. joined today, no met items yet) has no level: status is `{ percentage: 0, level: null, label: 'Baru' }`, raises no Level C alert, and is excluded from group averages (average of 4 weeks / this week).
+- **Active window:** each amalan row is active on `[created_on, deactivated_on)`; re-activation adds a new row starting today (section 7), so a row's window is fixed once it is deactivated.
 - Dates are in the usrah's timezone, fixed to `Asia/Kuala_Lumpur` in v1.
 
 ## 9. API
@@ -178,7 +179,7 @@ All under `/api`, JSON. Errors: `{ "error": { "code": "...", "message": "<Malay 
 - `GET /me/analytics?weeks=8` — weekly scores, 60-day heatmap, per-category breakdown
 
 **Naqib** (all limited to own usrah)
-- `POST /amalan` · `PATCH /amalan/:id` · `DELETE /amalan/:id` (soft deactivate)
+- `POST /amalan` · `PATCH /amalan/:id` (`{active:true}` on a deactivated row returns a new row) · `DELETE /amalan/:id` (soft deactivate)
 - `GET /usrah/summary` — KPIs, roster with scores and status, attention alerts
 - `GET /usrah/matrix?weeks=4` — member × amalan completion grid
 - `GET /members/:id` — profile, trend, recent logs
