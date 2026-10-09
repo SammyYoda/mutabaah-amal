@@ -139,3 +139,5 @@ Task 9: review — spec ✅, quality Approved (opus)
 Ruling R21: replies on a usrah-wide guidance item are visible to every member of the usrah (group thread); personal items stay private to member + naqib — matches "replies belong to the visible item"; cost if wrong: members see each other's replies on group notes (UI can label it "Perbincangan usrah").
 Task 9: minor (deferred): no test for in-usrah member /read on another's personal item; naqib reply to a removed recipient still notifies them; GET /guidance unbounded; visibleItem `as any`; 50-notification limit untested; co-naqibs not notified of usrah-wide items/replies
 Task 9: complete (commits cb1c720..18385d3, review clean)
+Task 10: dispatched (base 50f201a, implementer agent a14f241717949eca6, opus; carries R3, R22; demo view files copied unchanged, placeholders routed)
+Ruling R22: web views render via innerHTML template strings — every API-sourced string (names, notes, guidance, amalan names, usrah names, notifications) MUST pass through a shared escapeHtml() from web/js/util.js; attribute values too. Applies to Tasks 10–13. — stored XSS between members otherwise; cost: none.
