@@ -158,3 +158,5 @@ Task 11: minor (deferred): edits made during leave flush dropped; LOG_LOCKED lea
 Task 11: fix round 1/5 dispatched (fix base 3da4cf7; resumed implementer a76b006cb9c4204b8)
 Task 11: fix round 1/5 (2 addressed, 0 open — logout flushes leave hook first; LEAVE_HOOK_TIMEOUT_MS 5000 race; commits 3da4cf7..b93789d)
 Task 11: complete (commits cbb189e..b93789d, 1 fix round)
+Task 12: dispatched (base 2e570a7, implementer agent af011ee04bb4142ac, sonnet; carries R21, R22)
+Ruling R27: Task 12 — naqib's Bimbingan view hosts the 'Hantar bimbingan' form (to whole usrah or one member from the summary roster) in addition to Profil Ahli's — plan only put sending in Profil Ahli, but usrah-wide guidance (toUserId null) otherwise has no UI; cost: one extra form.
