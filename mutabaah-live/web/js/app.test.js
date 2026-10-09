@@ -1,4 +1,4 @@
-import { AppRouter } from './app.js';
+import { AppRouter, LEAVE_HOOK_TIMEOUT_MS } from './app.js';
 import { clearSession } from './session.js';
 
 const MEMBER = {
@@ -233,6 +233,38 @@ describe('AppRouter load lifecycle', () => {
     expect(leave).toHaveBeenCalledTimes(1); // b returned no hook; a's hook ran only once
   });
 
+  it('a leave hook still pending after LEAVE_HOOK_TIMEOUT_MS is abandoned: navigation proceeds with the failure toast', async () => {
+    expect(LEAVE_HOOK_TIMEOUT_MS).toBe(5000);
+    vi.useFakeTimers();
+    try {
+      mockApi(MEMBER);
+      window.showToast = vi.fn();
+      let finish;
+      const hook = vi.fn(() => new Promise((res) => (finish = res)));
+      const a = { ...probe(async () => ({ text: 'a' })), init: () => hook };
+      const b = probe(async () => ({ text: 'b' }));
+      const router = new AppRouter({ routes: { a, b } });
+      history.replaceState(null, '', '#a');
+      await router.handleRoute();
+      history.replaceState(null, '', '#b');
+      const nav = router.handleRoute();
+      await vi.advanceTimersByTimeAsync(LEAVE_HOOK_TIMEOUT_MS - 1);
+      expect(main().querySelector('#probe').textContent).toBe('a');
+      expect(window.showToast).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      await nav;
+      expect(main().querySelector('#probe').textContent).toBe('b');
+      expect(window.showToast).toHaveBeenCalledWith('Gagal disimpan — cuba lagi', 'error');
+      expect(hook.mock.calls[0][0]).toEqual({ timedOut: true });
+      finish(); // the late result neither throws nor re-renders
+      await vi.advanceTimersByTimeAsync(10);
+      expect(main().querySelector('#probe').textContent).toBe('b');
+      expect(window.showToast).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('a rejecting leave hook does not block navigation', async () => {
     mockApi(MEMBER);
     const a = { ...probe(async () => ({ text: 'a' })), init: () => async () => { throw new Error('x'); } };
@@ -261,6 +293,40 @@ describe('AppRouter load lifecycle', () => {
     expect(main().querySelector('#fast')).not.toBeNull();
     expect(main().querySelector('#probe')).toBeNull();
     expect(slow.init).not.toHaveBeenCalled();
+  });
+});
+
+describe('AppRouter logout with pending Hari Ini edits', () => {
+  it('flushes the pending save while still logged in, before calling logout, with no failure toast', async () => {
+    window.showToast = vi.fn();
+    const calls = [];
+    let loggedOut = false;
+    const amalan = [{ id: 1, code: '01', name: 'Tilawah', description: '', freq: 'harian', inputType: 'count', targetVal: 5, unit: 'm/s', icon: 'menu_book', sort: 0, active: true, createdOn: '2026-01-01', deactivatedOn: null }];
+    vi.stubGlobal('fetch', vi.fn(async (url, opts = {}) => {
+      const method = opts.method ?? 'GET';
+      if (method !== 'GET') calls.push(`${method} ${url}`);
+      if (url === '/api/auth/me') return loggedOut ? json(401, { error: { code: 'UNAUTHENTICATED', message: 'Sila log masuk' } }) : json(200, MEMBER);
+      if (loggedOut && url !== '/api/auth/logout') return json(401, { error: { code: 'UNAUTHENTICATED', message: 'Sila log masuk' } });
+      if (url === '/api/notifications') return json(200, []);
+      if (url === '/api/amalan') return json(200, amalan);
+      if (url.startsWith('/api/logs?')) return json(200, { logs: [], today: '2026-10-09', editableFrom: '2026-10-01' });
+      if (url === '/api/logs/2026-10-09' && method === 'PUT') {
+        const body = JSON.parse(opts.body);
+        return json(200, { date: '2026-10-09', values: body.values ?? {}, notes: body.notes ?? null, updatedAt: '2026-10-09T01:00:00Z' });
+      }
+      if (url === '/api/auth/logout') { loggedOut = true; return json(200, { ok: true }); }
+      return json(404, { error: { code: 'NOT_FOUND', message: 'x' } });
+    }));
+    history.replaceState(null, '', '#hari-ini');
+    const router = new AppRouter();
+    await router.handleRoute();
+    main().querySelector('[data-action="stepper"][data-key="1"][data-delta="1"]').click(); // pending (debounced)
+    await router.logout();
+    await vi.waitFor(() => expect(route()).toBe('#login'));
+    expect(calls).toEqual(['PUT /api/logs/2026-10-09', 'POST /api/auth/logout']);
+    const put = fetch.mock.calls.find(([u, o]) => u === '/api/logs/2026-10-09' && o.method === 'PUT');
+    expect(JSON.parse(put[1].body)).toEqual({ values: { 1: 1 } });
+    expect(window.showToast).not.toHaveBeenCalledWith('Gagal disimpan — cuba lagi', 'error');
   });
 });
 

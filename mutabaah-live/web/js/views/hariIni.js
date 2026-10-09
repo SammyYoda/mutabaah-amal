@@ -626,14 +626,15 @@ function initView(data) {
   };
   window.addEventListener('beforeunload', onUnload);
 
-  return async () => {
+  /** @param {{ timedOut?: boolean }} [ctx] set by the router when it stopped waiting (it toasts then) */
+  return async (ctx) => {
     window.removeEventListener('beforeunload', onUnload);
     captureNotes();
     if (queue.busy()) {
       try {
         await queue.flush();
       } catch {
-        if (!locked) window.showToast?.(SAVE_FAILED, 'error');
+        if (!locked && !ctx?.timedOut) window.showToast?.(SAVE_FAILED, 'error');
       }
     }
     queue.close();

@@ -25,6 +25,9 @@ import { adminRoute } from './views/admin.js';
 import { hariIniRoute } from './views/hariIni.js';
 
 const APP = "Mutaba'ah Amal";
+/** A route's leave hook (e.g. flushing a pending save) gets this long before navigation goes on anyway. */
+export const LEAVE_HOOK_TIMEOUT_MS = 5000;
+const SAVE_FAILED = 'Gagal disimpan — cuba lagi';
 const PUBLIC_ROUTES = new Set(['login', 'daftar']);
 const ROLE_LABELS = { naqib: 'Naqib Usrah', member: 'Ahli Usrah', admin: 'Pentadbir' };
 
@@ -137,7 +140,11 @@ export class AppRouter {
     return Object.hasOwn(this.routes, path) ? this.routes[path] : undefined;
   }
 
-  /** Runs the current route's leave hook (once) and waits for any hook already running. Never throws. */
+  /**
+   * Runs the current route's leave hook (once) and waits for any hook already running. Never throws.
+   * A hook still pending after LEAVE_HOOK_TIMEOUT_MS is abandoned (toast "Gagal disimpan — cuba lagi");
+   * the hook receives `{ timedOut }` so its late outcome can stay quiet.
+   */
   async runLeaveHook() {
     const hook = this.leaveHook;
     this.leaveHook = null;
@@ -145,11 +152,23 @@ export class AppRouter {
       const prev = this.leaving;
       const run = (async () => {
         if (prev) await prev;
-        try {
-          await hook();
-        } catch {
-          /* a failing hook must not block navigation */
-        }
+        const ctx = { timedOut: false };
+        /** @type {ReturnType<typeof setTimeout> | undefined} */
+        let timer;
+        const timeout = new Promise((res) => {
+          timer = setTimeout(() => {
+            ctx.timedOut = true;
+            res(undefined);
+          }, LEAVE_HOOK_TIMEOUT_MS);
+        });
+        const work = Promise.resolve()
+          .then(() => hook(ctx))
+          .catch(() => {
+            /* a failing hook must not block navigation */
+          });
+        await Promise.race([work, timeout]);
+        clearTimeout(timer);
+        if (ctx.timedOut) window.showToast?.(SAVE_FAILED, 'error');
       })();
       this.leaving = run;
       run.then(() => {
@@ -426,6 +445,8 @@ export class AppRouter {
   }
 
   async logout() {
+    // Flush pending edits (e.g. Hari Ini) while the session is still valid.
+    await this.runLeaveHook();
     try {
       await logout();
     } catch {
