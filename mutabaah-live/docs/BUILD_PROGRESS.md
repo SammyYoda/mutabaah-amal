@@ -145,3 +145,8 @@ Task 10: implementer DONE (d91aaae verbatim demo copy — verified byte-identica
 Ruling R23: default API PORT changes 3001 → 3101 (and Vite proxy default target to match; API_URL override stays) — port 3001 is taken on the user's machine by Uptime Kuma, so `npm run dev` would fail there; spec §3/global constraint updated in Task 14; cost: none functional.
 Ruling R24: Task 14's E2E smoke also runs once against the production build served by Fastify (npm run build + start) so the CSP/static serving is exercised — CSP untested in prod so far; cost: a slower e2e run.
 Task 10: review dispatched (diff d91aaae..HEAD — copy commit excluded as verified verbatim)
+Task 10: review — spec ✅, quality Approved (opus); R22 escaping verified in all files
+Ruling R25: admin reset-password UI (spec §5.5) is owned by Task 13 — admin list gains `naqibId` (server) and the admin view gets "Set semula kata laluan naqib" per usrah (+ api.js `adminResetPassword(id)`); cost: none.
+Ruling R26: Task 11 also hardens the router (Task 10 minors 1, 3, 5): own-property route lookup (#constructor etc.), clearSession() on 403 PASSWORD_CHANGE_REQUIRED, render/init exceptions shown in the "Cuba lagi" error card — Task 11 is the first real view on the router; cost: slightly larger Task 11.
+Task 10: minor (deferred): shownHash can drift during back-nav while /auth/me pending; bell dropdown closes on header re-render; test gaps (logout clears session, login setSession, escaping of notification text / naqib name, removed naqib in /auth/me)
+Task 10: complete (commits 50f201a..480b7d3, review clean)
