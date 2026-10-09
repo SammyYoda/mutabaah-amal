@@ -124,7 +124,8 @@ naqib_invites   id, usrah_id, token_hash UNIQUE, expires_at, used_at, created_by
 memberships     id, user_id, usrah_id, role ('naqib'|'member'), joined_at, removed_at
                 -- at most one active (removed_at IS NULL) membership per user
 amalan          id, usrah_id, code, name, description, freq ('harian'|'mingguan'|'bulanan'),
-                input_type ('count'|'check'|'prayers'), target_val, unit, icon, active, sort
+                input_type ('count'|'check'|'prayers'), target_val, unit, icon, active, sort,
+                created_on (date), deactivated_on (date NULL)
 daily_logs      id, user_id, usrah_id, date (YYYY-MM-DD), values JSON, notes, updated_at
                 UNIQUE(user_id, date)
 guidance        id, usrah_id, from_user_id, to_user_id NULL (= whole usrah), category,
@@ -141,6 +142,8 @@ notifications   id, user_id, type, text, link, created_at, read_at
 
 Deactivated amalan keep their id, so historical values remain meaningful. Amalan are never hard-deleted once any log references them.
 
+An amalan counts toward a day's score only if `created_on ≤ day` and (`deactivated_on` is NULL or `day < deactivated_on`). Adding or deactivating an amalan therefore never changes past scores. Editing a **target** applies retroactively (targets are not versioned in v1).
+
 ## 8. Scoring (`shared/score.js`)
 
 Pure functions used by both server and browser so numbers always agree.
@@ -153,6 +156,8 @@ Pure functions used by both server and browser so numbers always agree.
   items expected = (harian items × days elapsed in period) + (mingguan items × ISO weeks overlapping the period) + (bulanan items × calendar months overlapping the period),
   and items met counts each harian item per day, each mingguan item per week, and each bulanan item per month that met its target. Days in the future are excluded.
 - **Status band** (replaces the hard-coded `status`): ≥ 80% *Teguh (Level A)*, 60–79% *Sederhana (Level B)*, < 60% *Perlu Perhatian (Level C)*, over the last 4 weeks.
+- **New members:** a member's period scores start from their membership `joined_at` date; days before joining are neither expected nor met.
+- **In-progress periods:** a mingguan/bulanan period that contains today is counted in *items expected* only if already met, so scores do not drop at the start of every week/month.
 - Dates are in the usrah's timezone, fixed to `Asia/Kuala_Lumpur` in v1.
 
 ## 9. API
@@ -168,7 +173,7 @@ All under `/api`, JSON. Errors: `{ "error": { "code": "...", "message": "<Malay 
 **Member**
 - `GET /amalan` — active amalan of own usrah
 - `GET /logs?from=&to=` — own logs (max range 400 days)
-- `PUT /logs/:date` `{values, notes}` — own log; `date` must be ≤ today and within the current calendar month (`Asia/Kuala_Lumpur`). **Grace period:** on days 1–7 of a month, the previous month is still editable. From the 8th, the previous month is locked and Hari Ini shows it read-only.
+- `PUT /logs/:date` `{values, notes}` — own log; `values` is **merged** per amalan id into the stored log (so two devices editing different amalan do not overwrite each other); unknown amalan ids or wrong value types → 400; counts must be integers 0–100000; `date` must be ≤ today and within the current calendar month (`Asia/Kuala_Lumpur`). **Grace period:** on days 1–7 of a month, the previous month is still editable. From the 8th, the previous month is locked and Hari Ini shows it read-only.
 - `GET /me/analytics?weeks=8` — weekly scores, 60-day heatmap, per-category breakdown
 
 **Naqib** (all limited to own usrah)
