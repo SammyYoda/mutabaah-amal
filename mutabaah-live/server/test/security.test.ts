@@ -8,7 +8,7 @@ const ERROR_SHAPE = {
   error: { code: expect.stringMatching(/^[A-Z_]+$/), message: expect.any(String) },
 };
 
-async function setup(opts: { rateLimit?: boolean; trustProxy?: boolean } = {}) {
+async function setup(opts: { rateLimit?: boolean; trustProxy?: false | number | string[] } = {}) {
   const t = makeTestApp(opts);
   const usrahId = createTestUsrah(t.db);
   await createUser(t.db, { email: 'ahmad@usrah.my', name: 'Ahmad', usrahId, role: 'member' });
@@ -213,24 +213,51 @@ describe('static SPA serving (staticDir)', () => {
 });
 
 describe('trustProxy and the login rate-limit key', () => {
-  const login = (app: Awaited<ReturnType<typeof setup>>['app'], xff: string) =>
+  const login = (app: Awaited<ReturnType<typeof setup>>['app'], xff: string, email = 'ahmad@usrah.my') =>
     app.inject({
       method: 'POST',
       url: '/api/auth/login',
       headers: { 'content-type': 'application/json', origin: ORIGIN, 'x-forwarded-for': xff },
-      payload: JSON.stringify({ email: 'ahmad@usrah.my', password: 'salah' }),
+      payload: JSON.stringify({ email, password: 'salah' }),
     });
 
-  it('with trustProxy on, X-Forwarded-For decides the key (other clients are not limited)', async () => {
-    const { app } = await setup({ rateLimit: true, trustProxy: true });
+  it('with trustProxy = 1 hop, the proxy-appended (rightmost) IP decides the key', async () => {
+    const { app } = await setup({ rateLimit: true, trustProxy: 1 });
     for (let i = 0; i < 10; i++) expect((await login(app, '203.0.113.7')).statusCode).toBe(401);
     expect((await login(app, '203.0.113.7')).statusCode).toBe(429);
     expect((await login(app, '203.0.113.8')).statusCode).toBe(401);
+  });
+
+  it('with trustProxy = 1 hop, varying the client-controlled LEFTMOST X-Forwarded-For does not bypass the limit', async () => {
+    const { app } = await setup({ rateLimit: true, trustProxy: 1 });
+    for (let i = 0; i < 10; i++) {
+      expect((await login(app, `198.51.100.${i}, 203.0.113.7`)).statusCode).toBe(401);
+    }
+    expect((await login(app, '198.51.100.250, 203.0.113.7')).statusCode).toBe(429);
+  });
+
+  it('with trustProxy as an IP list, only those proxies are trusted', async () => {
+    const { app } = await setup({ rateLimit: true, trustProxy: ['127.0.0.1'] });
+    for (let i = 0; i < 10; i++) {
+      expect((await login(app, `198.51.100.${i}, 203.0.113.7`)).statusCode).toBe(401);
+    }
+    expect((await login(app, '198.51.100.250, 203.0.113.7')).statusCode).toBe(429);
   });
 
   it('with trustProxy off (default), X-Forwarded-For is ignored', async () => {
     const { app } = await setup({ rateLimit: true });
     for (let i = 0; i < 10; i++) expect((await login(app, `203.0.113.${i}`)).statusCode).toBe(401);
     expect((await login(app, '203.0.113.99')).statusCode).toBe(429);
+  });
+
+  it('per-email limit: the 21st attempt within an hour is 429 regardless of client IP', async () => {
+    const { app } = await setup({ rateLimit: true, trustProxy: 1 });
+    // 20 attempts from 20 distinct client IPs (each IP bucket stays far under its 10/15min limit)
+    for (let i = 0; i < 20; i++) expect((await login(app, `203.0.113.${i}`)).statusCode).toBe(401);
+    const res = await login(app, '203.0.113.200', ' AHMAD@usrah.my ');
+    expect(res.statusCode).toBe(429);
+    expect(res.json()).toEqual({ error: { code: 'RATE_LIMITED', message: expect.any(String) } });
+    // another account is unaffected
+    expect((await login(app, '203.0.113.201', 'lain@usrah.my')).statusCode).toBe(401);
   });
 });

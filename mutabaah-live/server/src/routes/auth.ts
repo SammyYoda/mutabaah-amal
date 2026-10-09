@@ -1,7 +1,7 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { and, eq, isNull } from 'drizzle-orm';
 import { z } from 'zod';
-import { AppError } from '../errors.js';
+import { AppError, MESSAGES } from '../errors.js';
 import { users, usrah, memberships, naqibInvites } from '../db/schema.js';
 import type { Db } from '../db/client.js';
 import { hashPassword, verifyPassword, getDummyHash } from '../auth/password.js';
@@ -30,6 +30,13 @@ const BAD_CODE = 'Kod jemputan tidak sah';
 const DUPLICATE_EMAIL = 'Emel sudah didaftarkan';
 
 export const LOGIN_RATE_LIMIT = { max: 10, timeWindow: '15 minutes' };
+/** IP-independent cap per normalised email (R30): a spoofed or rotating client IP can't buy more guesses. */
+export const LOGIN_EMAIL_RATE_LIMIT = { max: 20, timeWindow: '1 hour' };
+
+const loginEmailKey = (req: FastifyRequest) => {
+  const email = (req.body as { email?: unknown } | undefined)?.email;
+  return `email|${typeof email === 'string' ? normaliseEmail(email) : ''}`;
+};
 
 const LoginBody = z.object({
   email: z.string().min(1).max(254),
@@ -87,9 +94,19 @@ export function mePayload(db: Db, user: User, membership: ActiveMembership | nul
 
 export async function authRoutes(app: FastifyInstance) {
   await getDummyHash(); // warm up so the first unknown-email login isn't measurably slower
+  // A second, per-email limiter. createRateLimit (not app.rateLimit) because the route-level limiter
+  // marks the request as rate-limited and a second handler of that kind would be skipped.
+  const emailLimiter = typeof app.createRateLimit === 'function'
+    ? app.createRateLimit({ ...LOGIN_EMAIL_RATE_LIMIT, keyGenerator: loginEmailKey })
+    : undefined;
   app.post(
     '/login',
     {
+      preHandler: async (req) => {
+        if (!emailLimiter) return;
+        const r = await emailLimiter(req);
+        if (!r.isAllowed && r.isExceeded) throw new AppError(429, 'RATE_LIMITED', MESSAGES.RATE_LIMITED);
+      },
       config: {
         rateLimit: {
           ...LOGIN_RATE_LIMIT,

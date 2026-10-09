@@ -4,6 +4,7 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import type { Db } from './db/client.js';
+import { fastifyTrustProxy, type TrustProxySetting } from './config.js';
 import type { User, ActiveMembership } from './auth/sessions.js';
 import { AppError, MESSAGES, errorBody, errorHandler } from './errors.js';
 import { authRoutes } from './routes/auth.js';
@@ -39,8 +40,11 @@ export type BuildAppOptions = {
   /** Absolute path of the built SPA (dist/web). When set, it is served with an index.html fallback. */
   staticDir?: string;
   logger?: boolean;
-  /** Trust X-Forwarded-For (behind a reverse proxy) so req.ip is the client IP. Default false. */
-  trustProxy?: boolean;
+  /**
+   * Trust X-Forwarded-For from a reverse proxy so req.ip is the client IP: a hop count (the rightmost
+   * n addresses are proxies) or a list of proxy IPs/CIDRs. Default false. Never "trust everything" (R30).
+   */
+  trustProxy?: TrustProxySetting;
 };
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -50,7 +54,7 @@ function isJson(contentType: string | undefined): boolean {
 }
 
 export function buildApp(opts: BuildAppOptions): FastifyInstance {
-  const app = Fastify({ logger: opts.logger ?? false, trustProxy: opts.trustProxy ?? false });
+  const app = Fastify({ logger: opts.logger ?? false, trustProxy: fastifyTrustProxy(opts.trustProxy) });
 
   app.decorate('db', opts.db);
   app.decorate('appOrigin', opts.appOrigin);

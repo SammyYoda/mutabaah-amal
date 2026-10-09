@@ -32,7 +32,7 @@ npm start              # NODE_ENV=production; Fastify serves the API and dist/we
 | `HOST` | `0.0.0.0` | Bind address |
 | `APP_ORIGIN` | `http://localhost:3000` | Exact public origin of the app, e.g. `https://mutabaah.example.org`. Mutating requests must send this `Origin`, and invite links use it. Set it in production. |
 | `NODE_ENV` | - | `production` serves `dist/web` and marks the session cookie `Secure` |
-| `TRUST_PROXY` | off | `1`/`true` when behind a reverse proxy, so rate limits key on the client IP from `X-Forwarded-For`. Leave off if the app is directly exposed (the header is spoofable). |
+| `TRUST_PROXY` | off | Set only when behind a reverse proxy, so rate limits key on the real client IP from `X-Forwarded-For`. Either a **hop count** (`1` = one proxy, e.g. nginx, appends the client IP; the rightmost `n` addresses are trusted) or a **comma-separated list of proxy IPs/CIDRs** (`127.0.0.1,10.0.0.0/8`; safest). `true` is read as 1 hop and logs a warning ("TRUST_PROXY=true ditafsir sebagai 1 hop proxy"). `0`/`false`/unset = off. Any other value stops startup. With a hop count, make sure the app is reachable only through the proxy (e.g. `HOST=127.0.0.1`), otherwise a direct client can forge the header. Login is also capped at 20 attempts per hour per email, whatever the IP. |
 
 Operating notes:
 
