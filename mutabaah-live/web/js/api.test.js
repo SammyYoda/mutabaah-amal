@@ -144,6 +144,14 @@ describe('endpoint functions', () => {
     expect(call()).toEqual({ url: '/api/logs/2026-10-09', method: 'PUT', body: { values: { 3: 1 }, notes: 'ok' } });
   });
 
+  it('saveLog can send the request with fetch keepalive (page unload); default is without', async () => {
+    await saveLog('2026-10-09', { values: { 3: 1 } });
+    expect(fetchMock.mock.calls[0][1].keepalive).toBeUndefined();
+    await saveLog('2026-10-09', { values: { 3: 2 } }, { keepalive: true });
+    expect(fetchMock.mock.calls[1][1].keepalive).toBe(true);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ values: { 3: 2 } });
+  });
+
   it('markNotificationsRead posts to read-all', async () => {
     await markNotificationsRead();
     expect(call()).toMatchObject({ url: '/api/notifications/read-all', method: 'POST' });

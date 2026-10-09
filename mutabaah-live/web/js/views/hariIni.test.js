@@ -57,6 +57,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.clearAllTimers(); // drop debounced saves scheduled by the test
   vi.useRealTimers();
+  localStorage.clear();
 });
 
 describe('rangeFor', () => {
@@ -343,5 +344,157 @@ describe('Hari Ini full flow (fake server)', () => {
     expect($('[data-action="toggle-task"][data-key="3"]').textContent).toContain('Selesai');
     expect($$('[data-action="toggle-prayer"]').every((b) => b.getAttribute('aria-pressed') === 'true')).toBe(true);
     expect($('#daily-score-pct').textContent).toBe('67%'); // tilawah 3 / 5 unmet; prayers + dhuha met → 2/3
+  });
+});
+
+const PENDING_KEY = `mutabaah:pending:2:${TODAY}`;
+const stored = (key = PENDING_KEY) => {
+  const raw = localStorage.getItem(key);
+  return raw === null ? null : JSON.parse(raw);
+};
+
+describe('Hari Ini unsaved edits survive a failed leave (R32)', () => {
+  it('a failed leave flush stores the pending values + notes; the next load replays, saves and clears them', async () => {
+    vi.useFakeTimers();
+    saveLog.mockRejectedValue(new ApiError(0, 'NETWORK', 'Tiada sambungan'));
+    const { leave } = await mount();
+    plus(1).click();
+    $('#daily-notes').value = 'belum disimpan';
+    await leave();
+    expect(stored()).toEqual({ values: { 1: 2 }, notes: 'belum disimpan' });
+
+    saveLog.mockReset();
+    saveLog.mockImplementation(async (date, body) => log(date, body.values ?? {}, body.notes ?? null));
+    window.showToast.mockClear();
+    await mount(); // server still has { 1: 1, 3: true }
+    expect($('[data-value-for="1"]').textContent).toBe('2'); // merged over the server log
+    expect($('#daily-notes').value).toBe('belum disimpan');
+    expect(window.showToast).toHaveBeenCalledWith('Perubahan belum disimpan dipulihkan', 'info');
+    await vi.advanceTimersByTimeAsync(800);
+    expect(saveLog).toHaveBeenCalledWith(TODAY, { values: { 1: 2 }, notes: 'belum disimpan' });
+    await vi.waitFor(() => expect(stored()).toBeNull());
+  });
+
+  it('a leave flush the router gives up on (timeout) has already stored the pending values', async () => {
+    vi.useFakeTimers();
+    saveLog.mockImplementation(() => new Promise(() => {})); // never settles
+    const { leave } = await mount();
+    plus(1).click();
+    void leave({ timedOut: false });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(stored()).toEqual({ values: { 1: 2 } });
+  });
+
+  it('a successful leave flush leaves nothing in localStorage', async () => {
+    vi.useFakeTimers();
+    const { leave } = await mount();
+    plus(1).click();
+    await leave();
+    expect(saveLog).toHaveBeenCalledTimes(1);
+    expect(stored()).toBeNull();
+  });
+
+  it('inputs are disabled while the leave hook is flushing, so no edit is captured and then dropped', async () => {
+    vi.useFakeTimers();
+    let resolve;
+    saveLog.mockImplementation(() => new Promise((r) => (resolve = r)));
+    const { leave } = await mount();
+    plus(1).click();
+    const done = leave();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(plus(1).disabled).toBe(true);
+    expect($('[data-action="toggle-task"][data-key="3"]').disabled).toBe(true);
+    expect($('[data-action="toggle-prayer"][data-prayer="subuh"]').disabled).toBe(true);
+    expect($('#daily-notes').disabled).toBe(true);
+    expect($('#btn-save-manual').disabled).toBe(true);
+    plus(1).click(); // ignored
+    expect($('[data-value-for="1"]').textContent).toBe('2');
+    resolve(log(TODAY, { 1: 2 }));
+    await done;
+    expect(saveLog).toHaveBeenCalledTimes(1);
+    expect(saveLog).toHaveBeenCalledWith(TODAY, { values: { 1: 2 } });
+  });
+
+  it('never replays into a locked date: the key is dropped with the LOG_LOCKED message', async () => {
+    const old = '2026-09-20'; // before editableFrom
+    localStorage.setItem(`mutabaah:pending:2:${old}`, JSON.stringify({ values: { 1: 4 } }));
+    getLogs.mockResolvedValue(logsResponse([]));
+    await mount(`tarikh=${old}`);
+    expect(stored(`mutabaah:pending:2:${old}`)).toBeNull();
+    expect(window.showToast).toHaveBeenCalledWith('Log bulan ini sudah dikunci', 'error');
+    expect($('[data-value-for="1"]').textContent).toBe('0');
+    expect(saveLog).not.toHaveBeenCalled();
+  });
+
+  it("another user's stored edits are not replayed", async () => {
+    localStorage.setItem(`mutabaah:pending:99:${TODAY}`, JSON.stringify({ values: { 1: 4 } }));
+    await mount();
+    expect($('[data-value-for="1"]').textContent).toBe('1');
+    expect(window.showToast).not.toHaveBeenCalled();
+    expect(stored(`mutabaah:pending:99:${TODAY}`)).not.toBeNull();
+  });
+
+  it('corrupt stored JSON is ignored and removed', async () => {
+    localStorage.setItem(PENDING_KEY, '{nope');
+    await mount();
+    expect($('[data-value-for="1"]').textContent).toBe('1');
+    expect(stored()).toBeNull();
+  });
+
+  it('the beforeunload flush uses fetch keepalive', async () => {
+    vi.useFakeTimers();
+    await mount();
+    plus(1).click();
+    window.dispatchEvent(new Event('beforeunload'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(saveLog).toHaveBeenCalledWith(TODAY, { values: { 1: 2 } }, { keepalive: true });
+  });
+});
+
+describe('Hari Ini non-retryable save errors (R32)', () => {
+  it('a 400 VALIDATION_ERROR drops the offending keys with the server message; the rest and later saves go through', async () => {
+    vi.useFakeTimers();
+    saveLog.mockRejectedValueOnce(new ApiError(400, 'VALIDATION_ERROR', 'Data tidak sah', { 'values.1': 'Nilai tidak sah' }));
+    await mount();
+    plus(1).click();
+    $('[data-action="toggle-task"][data-key="3"]').click();
+    await vi.advanceTimersByTimeAsync(800);
+    expect(saveLog).toHaveBeenNthCalledWith(1, TODAY, { values: { 1: 2, 3: false } });
+    expect(window.showToast).toHaveBeenCalledWith('Data tidak sah', 'error');
+    await vi.advanceTimersByTimeAsync(800); // the valid key is re-sent on its own
+    expect(saveLog).toHaveBeenNthCalledWith(2, TODAY, { values: { 3: false } });
+    plus(1).click();
+    await vi.advanceTimersByTimeAsync(800);
+    expect(saveLog).toHaveBeenNthCalledWith(3, TODAY, { values: { 1: 3 } });
+    await vi.waitFor(() => expect(pill().textContent).toMatch(/Disimpan \d\d:\d\d/));
+    expect(saveLog).toHaveBeenCalledTimes(3);
+  });
+
+  it('a 400 without field details drops the whole batch (not re-queued forever)', async () => {
+    vi.useFakeTimers();
+    saveLog.mockRejectedValueOnce(new ApiError(400, 'VALIDATION_ERROR', 'Data tidak sah'));
+    const { leave } = await mount();
+    plus(1).click();
+    await vi.advanceTimersByTimeAsync(800);
+    expect(window.showToast).toHaveBeenCalledWith('Data tidak sah', 'error');
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(saveLog).toHaveBeenCalledTimes(1);
+    $('[data-action="toggle-task"][data-key="3"]').click();
+    await vi.advanceTimersByTimeAsync(800);
+    expect(saveLog).toHaveBeenLastCalledWith(TODAY, { values: { 3: false } });
+    await leave();
+    expect(saveLog).toHaveBeenCalledTimes(2);
+    expect(stored()).toBeNull();
+  });
+
+  it('network and 5xx failures keep the keys for a retry', async () => {
+    vi.useFakeTimers();
+    saveLog.mockRejectedValueOnce(new ApiError(503, 'INTERNAL', 'Ralat'));
+    const { leave } = await mount();
+    plus(1).click();
+    await vi.advanceTimersByTimeAsync(800);
+    await leave();
+    expect(saveLog).toHaveBeenLastCalledWith(TODAY, { values: { 1: 2 } });
+    expect(saveLog).toHaveBeenCalledTimes(2);
   });
 });

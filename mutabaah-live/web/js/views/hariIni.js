@@ -23,6 +23,8 @@ const DAY_FULL = ['Ahad', 'Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat', 'Sabtu'
 const MONTHS = ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogo', 'Sep', 'Okt', 'Nov', 'Dis'];
 const PRAYER_LABELS = { subuh: 'Subuh', zohor: 'Zohor', asar: 'Asar', maghrib: 'Maghrib', isya: "Isya'" };
 const SAVE_FAILED = 'Gagal disimpan — cuba lagi';
+const RESTORED = 'Perubahan belum disimpan dipulihkan';
+const LOG_LOCKED_MESSAGE = 'Log bulan ini sudah dikunci'; // same text as the server's 403 LOG_LOCKED
 const SAVE_DELAY_MS = 800;
 const RING = 125.6; // circumference of the r=20 progress rings
 
@@ -70,12 +72,55 @@ function clockKL(iso) {
 }
 
 // ---------------------------------------------------------------------------
+// Unsaved edits kept in localStorage after a failed leave (R32)
+// ---------------------------------------------------------------------------
+
+/** @param {unknown} userId @param {string} date */
+export const pendingKey = (userId, date) => `mutabaah:pending:${userId}:${date}`;
+
+/** @param {string} key @returns {{ values: Record<string, unknown>, notes?: string } | null} */
+function readPending(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return null;
+    const p = JSON.parse(raw);
+    const ok = p && typeof p === 'object' && p.values && typeof p.values === 'object' && !Array.isArray(p.values) &&
+      (p.notes === undefined || typeof p.notes === 'string');
+    if (!ok) throw new Error('bad pending entry');
+    return p.notes === undefined ? { values: p.values } : { values: p.values, notes: p.notes };
+  } catch {
+    removePending(key);
+    return null;
+  }
+}
+
+/** @param {string} key @param {{ values: Record<string, unknown>, notes?: string }} snap */
+function writePending(key, snap) {
+  if (!Object.keys(snap.values).length && snap.notes === undefined) return removePending(key);
+  try {
+    localStorage.setItem(key, JSON.stringify(snap));
+  } catch {
+    /* storage full or blocked: nothing more we can do */
+  }
+}
+
+/** @param {string} key */
+function removePending(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Data
 // ---------------------------------------------------------------------------
 
 /**
  * @param {URLSearchParams} params
- * @returns {Promise<{ amalan: any[], logs: any[], today: string, editableFrom: string, activeDate: string }>}
+ * @returns {Promise<{ amalan: any[], logs: any[], today: string, editableFrom: string, activeDate: string,
+ *   restored: { values: Record<string, unknown>, notes?: string } | null, droppedLocked: boolean }>}
  */
 async function load(params) {
   const tarikh = params.get('tarikh');
@@ -90,7 +135,22 @@ async function load(params) {
   const need = rangeFor(activeDate, today);
   let logs = first.logs;
   if (need.from < guess.from || need.to > guess.to) logs = (await getLogs(need.from, need.to)).logs;
-  return { amalan, logs, today, editableFrom, activeDate };
+
+  // Edits a failed leave flush kept for this user + date (R32); never replayed into a locked date.
+  const userId = getSession()?.user?.id;
+  let restored = null;
+  let droppedLocked = false;
+  if (userId != null) {
+    const key = pendingKey(userId, activeDate);
+    const pending = readPending(key);
+    if (pending && (activeDate < editableFrom || activeDate > today)) {
+      removePending(key);
+      droppedLocked = true;
+    } else {
+      restored = pending;
+    }
+  }
+  return { amalan, logs, today, editableFrom, activeDate, restored, droppedLocked };
 }
 
 /** Mutable page state built from the loaded data (render and init each build their own). */
@@ -99,6 +159,11 @@ function makeState(data) {
   const logs = new Map();
   for (const l of data.logs ?? []) logs.set(l.date, { ...l, values: { ...(l.values ?? {}) } });
   if (!logs.has(data.activeDate)) logs.set(data.activeDate, { date: data.activeDate, values: {}, notes: null });
+  if (data.restored) {
+    const cur = /** @type {any} */ (logs.get(data.activeDate));
+    cur.values = { ...cur.values, ...data.restored.values };
+    if (data.restored.notes !== undefined) cur.notes = data.restored.notes;
+  }
   const items = (data.amalan ?? []).filter((a) => isActiveOn(a, data.activeDate));
   return {
     amalan: data.amalan ?? [],
@@ -502,11 +567,21 @@ function initView(data) {
     /** @type {HTMLElement} */ (pill.lastElementChild).textContent = text;
   }
 
-  function setReadOnly() {
+  /** Disables every input (log locked, or the page is being left and its last save is in flight). */
+  function disableInputs() {
     st.readOnly = true;
     for (const el of root.querySelectorAll('[data-action="stepper"], [data-action="toggle-task"], [data-action="toggle-prayer"], [data-action="save-now"], #daily-notes')) {
       /** @type {HTMLButtonElement} */ (el).disabled = true;
     }
+  }
+
+  const userId = getSession()?.user?.id;
+  const storeKey = userId != null ? pendingKey(userId, st.activeDate) : null;
+  const persistPending = () => storeKey && writePending(storeKey, queue.snapshot());
+  const clearPending = () => storeKey && removePending(storeKey);
+
+  function setReadOnly() {
+    disableInputs();
     root.querySelector('[data-lock-badge]')?.classList.remove('hidden');
     pill.classList.add('hidden');
     const dock = root.querySelector('[data-dock-title]');
@@ -515,22 +590,36 @@ function initView(data) {
 
   const queue = createSaveQueue({
     delay: SAVE_DELAY_MS,
-    save: (body) => saveLog(st.activeDate, body),
+    save: (body, options) => (options ? saveLog(st.activeDate, body, options) : saveLog(st.activeDate, body)),
     onState(kind, payload) {
       if (kind === 'saving') setPill('saving', 'Menyimpan…');
       else if (kind === 'saved') {
         if (payload?.updatedAt) currentLog(st).updatedAt = payload.updatedAt;
         setPill('saved', `Disimpan ${clockKL(payload?.updatedAt)}`);
+        if (!queue.hasPending()) clearPending();
       } else if (payload?.code === 'LOG_LOCKED') {
         locked = true;
         queue.close();
+        clearPending();
         window.showToast?.(payload.message, 'error');
         setReadOnly();
+      } else if (payload?.status === 400) {
+        // Not retryable: the queue dropped the offending keys (R32). Show the server's message.
+        window.showToast?.(payload.message, 'error');
+        if (!queue.hasPending()) setPill('idle', 'Perubahan tidak disimpan');
       } else {
         setPill('error', SAVE_FAILED);
       }
     },
   });
+
+  if (data.droppedLocked) window.showToast?.(LOG_LOCKED_MESSAGE, 'error');
+  if (data.restored && !st.readOnly) {
+    for (const [k, v] of Object.entries(data.restored.values)) queue.set(k, v);
+    if (data.restored.notes !== undefined) queue.setNotes(data.restored.notes);
+    window.showToast?.(RESTORED, 'info');
+    queue.flush().catch(() => {});
+  }
 
   /** Re-renders the parts that depend on values: one card, the rings and today's strip cell. */
   function refresh(a, focusSel) {
@@ -622,7 +711,7 @@ function initView(data) {
 
   const onUnload = () => {
     captureNotes();
-    if (queue.hasPending()) queue.flush().catch(() => {});
+    if (queue.hasPending()) queue.flush({ keepalive: true }).catch(() => {});
   };
   window.addEventListener('beforeunload', onUnload);
 
@@ -630,11 +719,16 @@ function initView(data) {
   return async (ctx) => {
     window.removeEventListener('beforeunload', onUnload);
     captureNotes();
+    disableInputs(); // no edit may be captured now and then dropped by close()
     if (queue.busy()) {
+      persistPending(); // kept if the flush fails or the router stops waiting; cleared on success
       try {
         await queue.flush();
-      } catch {
-        if (!locked && !ctx?.timedOut) window.showToast?.(SAVE_FAILED, 'error');
+        clearPending();
+      } catch (err) {
+        if (locked) clearPending();
+        else persistPending();
+        if (!locked && !ctx?.timedOut && /** @type {any} */ (err)?.status !== 400) window.showToast?.(SAVE_FAILED, 'error');
       }
     }
     queue.close();

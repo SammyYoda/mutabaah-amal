@@ -50,11 +50,13 @@ function currentRoute() {
  * @param {'GET'|'POST'|'PUT'|'PATCH'|'DELETE'} method
  * @param {string} path path under /api, e.g. '/auth/me'
  * @param {unknown} [body] JSON body; mutating requests send {} when omitted
+ * @param {{ keepalive?: boolean }} [options] keepalive: let the request outlive the page (beforeunload)
  * @returns {Promise<any>}
  */
-export async function request(method, path, body) {
+export async function request(method, path, body, options = {}) {
   /** @type {RequestInit & { headers: Record<string,string> }} */
   const opts = { method, credentials: 'same-origin', headers: { Accept: 'application/json' } };
+  if (options.keepalive) opts.keepalive = true;
   if (method !== 'GET') {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body ?? {});
@@ -105,7 +107,8 @@ export const changePassword = (currentPassword, newPassword) =>
 // --- amalan & logs ---
 export const getAmalan = () => request('GET', '/amalan');
 export const getLogs = (from, to) => request('GET', `/logs?${q({ from, to })}`);
-export const saveLog = (date, { values, notes }) => request('PUT', `/logs/${id(date)}`, { values, notes });
+/** @param {{ keepalive?: boolean }} [options] */
+export const saveLog = (date, { values, notes }, options) => request('PUT', `/logs/${id(date)}`, { values, notes }, options);
 export const createAmalan = (a) => request('POST', '/amalan', a);
 export const updateAmalan = (amalanId, patch) => request('PATCH', `/amalan/${id(amalanId)}`, patch);
 export const deactivateAmalan = (amalanId) => request('DELETE', `/amalan/${id(amalanId)}`);
