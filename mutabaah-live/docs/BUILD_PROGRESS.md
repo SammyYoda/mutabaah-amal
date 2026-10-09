@@ -62,3 +62,6 @@ Task 2: minor (deferred → carried to Task 3): prayers item with null targetVal
 Task 2: minor (deferred): weekly prayers aggregation = days with ≥targetVal prayers compared against same targetVal (plan-mandated ambiguity)
 Task 2: minor (deferred): count values not validated in score.js (API validates, Task 6)
 Task 2: minor (deferred): test gaps — mingguan deactivated mid-week, completed unmet month, week spanning month boundary; weekStart(d) computed twice at score.js:101
+Task 2: fix round 1/5 dispatched (fix base 61bf33f; resumed implementer a444ff9292267feb9 with R6)
+Task 2: fix round 1/5 (1 addressed, 0 open — R6 whole-period judging; commits 61bf33f..b2a3c64)
+Task 2: complete (commits 855c640..b2a3c64, review clean)
