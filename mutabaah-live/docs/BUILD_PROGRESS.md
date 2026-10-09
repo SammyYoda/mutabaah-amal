@@ -141,3 +141,7 @@ Task 9: minor (deferred): no test for in-usrah member /read on another's persona
 Task 9: complete (commits cb1c720..18385d3, review clean)
 Task 10: dispatched (base 50f201a, implementer agent a14f241717949eca6, opus; carries R3, R22; demo view files copied unchanged, placeholders routed)
 Ruling R22: web views render via innerHTML template strings — every API-sourced string (names, notes, guidance, amalan names, usrah names, notifications) MUST pass through a shared escapeHtml() from web/js/util.js; attribute values too. Applies to Tasks 10–13. — stored XSS between members otherwise; cost: none.
+Task 10: implementer DONE (d91aaae verbatim demo copy — verified byte-identical by controller; 4dbc7f0 /auth/me usrah.naqibName; 96287bf web foundation; 480b7d3 API_URL proxy override) — 220/220, build OK
+Ruling R23: default API PORT changes 3001 → 3101 (and Vite proxy default target to match; API_URL override stays) — port 3001 is taken on the user's machine by Uptime Kuma, so `npm run dev` would fail there; spec §3/global constraint updated in Task 14; cost: none functional.
+Ruling R24: Task 14's E2E smoke also runs once against the production build served by Fastify (npm run build + start) so the CSP/static serving is exercised — CSP untested in prod so far; cost: a slower e2e run.
+Task 10: review dispatched (diff d91aaae..HEAD — copy commit excluded as verified verbatim)
