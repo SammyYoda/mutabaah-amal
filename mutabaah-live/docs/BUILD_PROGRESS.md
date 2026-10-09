@@ -175,3 +175,4 @@ Task 13: fix round 1/5 dispatched (fix base b4826db; resumed implementer ab17c54
 Task 13: fix round 1/5 (2 addressed, 0 open — Baru neutral in Matriks/Profil Ahli/Analitik; commits b4826db..f664a3b)
 Task 13: minor (deferred): Profil Ahli "Skor Minggu Ini" shows 0% for new member; Baru signalled by empty cells (matrix) vs level null (status) — separate signals
 Task 13: complete (commits c60cc4a..f664a3b, 1 fix round)
+Task 14: dispatched (base af28171, implementer agent ad1f9af53fb95dc7a, sonnet; carries R9, R23, R24; Playwright chromium user-level install allowed, no sudo)
