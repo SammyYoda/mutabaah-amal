@@ -12,6 +12,8 @@ import { amalanRoutes } from './routes/amalan.js';
 import { logRoutes } from './routes/logs.js';
 import { naqibRoutes } from './routes/naqib.js';
 import { analyticsRoutes } from './routes/analytics.js';
+import { guidanceRoutes } from './routes/guidance.js';
+import { notificationRoutes } from './routes/notifications.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -102,6 +104,8 @@ export function buildApp(opts: BuildAppOptions): FastifyInstance {
   app.register(logRoutes, { prefix: '/api' });
   app.register(naqibRoutes, { prefix: '/api' });
   app.register(analyticsRoutes, { prefix: '/api' });
+  app.register(guidanceRoutes, { prefix: '/api' });
+  app.register(notificationRoutes, { prefix: '/api' });
 
   if (opts.staticDir) {
     app.register(fastifyStatic, { root: opts.staticDir, wildcard: true });

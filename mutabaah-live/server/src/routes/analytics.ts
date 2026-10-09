@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify';
-import { and, eq, inArray, isNull, max, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, max, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { dailyLogs, memberships, usrah, users } from '../db/schema.js';
+import { dailyLogs, guidance, memberships, usrah, users } from '../db/schema.js';
 import { requireNaqib, requireUser } from '../auth/guards.js';
 import { AppError, MESSAGES, zodFields } from '../errors.js';
 import { usrahIdOf } from './amalan.js';
 import { serializeLog } from './logs.js';
+import { serializeGuidance } from './guidance.js';
 import { loadScoring, toScoreAmalan, toScoreLogs } from '../services/loadScoring.js';
 import {
   buildAlerts, buildKpis, byCategory, heatmap, initialsOf, memberMetrics, scoreOver, statusOf, weeklySeries, windows,
@@ -129,7 +130,11 @@ export async function analyticsRoutes(app: FastifyInstance) {
       status: statusOf(ctx),
       weekly: weeklySeries(ctx, 8),
       recentLogs: rows.filter((l) => l.date >= recentFrom && l.date <= today).map(serializeLog),
-      guidance: [],
+      guidance: serializeGuidance(
+        app.db,
+        app.db.select().from(guidance).where(and(eq(guidance.usrahId, usrahId), eq(guidance.toUserId, id))).orderBy(desc(guidance.createdAt), desc(guidance.id)).all(),
+        req.user.id,
+      ),
     };
   });
 }
