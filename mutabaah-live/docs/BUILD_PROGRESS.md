@@ -102,3 +102,12 @@ Task 5: minor (deferred): createUsrah uses new Date() for usrah.createdAt (ignor
 Task 5: minor (deferred): admin.ts correlated subqueries reference bare `usrah.id`; confusing usedAt test predicate; helpers token parsing
 Task 5: minor (deferred): test gaps — notification link, 409 leaves invite unused, naqib-invite unknown usrah 404, admin 403 with plain member
 Task 5: complete (commits 838a470..3dd1fa9, review clean)
+Task 6: dispatched (base af763b5, implementer agent ac94d3684c80bf2f1, sonnet)
+Ruling R14: log values validation accepts keys for ALL of the usrah's amalan incl. deactivated ones — members may correct a day when the item was still active; cost if wrong: a member could store a value for a deactivated item on a later day (ignored by scoring via isActiveOn).
+Ruling R15: GET/PUT logs filter by userId AND current usrahId — a rejoined member in a different usrah doesn't see old-usrah logs; cost if wrong: history hidden after moving usrah.
+Task 6: implementer DONE_WITH_CONCERNS-ish (e81cd62) — 117/117; weak RED (impl drafted first); PUT matches existing log by (userId,date) only → re-tags old-usrah log; review dispatched
+Task 6: review — spec ✅, quality Approved
+Task 6: minor → carried to Task 7: PUT /logs merges/re-tags a same-date log from a previous usrah (reachable via R13 rejoin into another usrah) — fix: start from {} / null notes when existing.usrahId !== current usrahId
+Task 6: minor (deferred): test gaps — __proto__/constructor keys, 401 on /logs, fields map in other-usrah test; redundant DateParam.parse
+Task 6: minor (deferred): weak RED evidence (process only)
+Task 6: complete (commits af763b5..e81cd62, review clean)
