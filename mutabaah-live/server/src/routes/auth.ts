@@ -60,6 +60,17 @@ export function mePayload(db: Db, user: User, membership: ActiveMembership | nul
   const u = membership
     ? db.select({ id: usrah.id, name: usrah.name }).from(usrah).where(eq(usrah.id, membership.usrahId)).get()
     : undefined;
+  // The usrah's (first active) naqib, shown in the web header's privacy line.
+  const naqib = u
+    ? db
+        .select({ name: users.name })
+        .from(memberships)
+        .innerJoin(users, eq(users.id, memberships.userId))
+        .where(and(eq(memberships.usrahId, u.id), eq(memberships.role, 'naqib'), isNull(memberships.removedAt)))
+        .orderBy(memberships.id)
+        .limit(1)
+        .get()
+    : undefined;
   return {
     user: {
       id: user.id,
@@ -69,7 +80,7 @@ export function mePayload(db: Db, user: User, membership: ActiveMembership | nul
       isAdmin: user.isAdmin,
       mustChangePassword: user.mustChangePassword,
     },
-    usrah: u ?? null,
+    usrah: u ? { ...u, naqibName: naqib?.name ?? null } : null,
     role: membership?.role ?? null,
   };
 }

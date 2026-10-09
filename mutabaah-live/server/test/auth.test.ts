@@ -78,9 +78,17 @@ describe('GET /api/auth/me', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
       user: { id: userId, name: 'Ahmad', email: 'ahmad@usrah.my', phone: null, isAdmin: false, mustChangePassword: false },
-      usrah: { id: usrahId, name: 'Usrah Al-Fatih' },
+      usrah: { id: usrahId, name: 'Usrah Al-Fatih', naqibName: null },
       role: 'member',
     });
+  });
+
+  it("includes the usrah's naqib name (for the header's privacy line)", async () => {
+    const { app, db, usrahId } = await setup();
+    await createUser(db, { email: 'naqib@usrah.my', name: 'Ustaz Hazwan', usrahId, role: 'naqib' });
+    const cookie = await loginAs(app, 'ahmad@usrah.my');
+    const res = await api(app, cookie).get('/api/auth/me');
+    expect(res.json().usrah).toEqual({ id: usrahId, name: 'Usrah Al-Fatih', naqibName: 'Ustaz Hazwan' });
   });
 
   it('works for an admin without a membership (usrah null, role null)', async () => {
