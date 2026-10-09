@@ -155,3 +155,6 @@ Task 11: implementer DONE (80951be) — 255/255, build clean; deviations: load r
 Task 11: review dispatched (diff 2550dd3..80951be)
 Task 11: review — spec ✅ (deviations accepted: load range, saveQueue split, leave-hook contract), quality Needs fixes — Important: (1) logout bypasses leave hook → pending edits lost + spurious toast; (2) hung save blocks navigation forever (no timeout)
 Task 11: minor (deferred): edits made during leave flush dropped; LOG_LOCKED leaves optimistic values on screen; permanent 4xx (VALIDATION_ERROR) re-queued forever (queue poisoned); pill "Disimpan" while newer edits pending; test gaps (in-flight edit, date-strip leave flush via real router)
+Task 11: fix round 1/5 dispatched (fix base 3da4cf7; resumed implementer a76b006cb9c4204b8)
+Task 11: fix round 1/5 (2 addressed, 0 open — logout flushes leave hook first; LEAVE_HOOK_TIMEOUT_MS 5000 race; commits 3da4cf7..b93789d)
+Task 11: complete (commits cbb189e..b93789d, 1 fix round)
