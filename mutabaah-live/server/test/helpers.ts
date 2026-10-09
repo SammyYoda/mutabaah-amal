@@ -1,0 +1,103 @@
+import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
+import { openDb, migrateDb, type Db } from '../src/db/client.js';
+import { buildApp } from '../src/app.js';
+import { users, usrah, memberships } from '../src/db/schema.js';
+import { hashPassword } from '../src/auth/password.js';
+
+export const TEST_ORIGIN = 'http://localhost:3000';
+export const TEST_PASSWORD = 'katalaluan123';
+const DEFAULT_NOW = '2026-10-09T02:00:00.000Z'; // 10:00 in Kuala Lumpur
+
+/** Fresh in-memory DB + app. Rate limiting is off unless `rateLimit: true`. Call app.close() if you need to. */
+export function makeTestApp(opts: { now?: string; rateLimit?: boolean } = {}) {
+  const db = openDb(':memory:');
+  migrateDb(db);
+  let current = new Date(opts.now ?? DEFAULT_NOW);
+  const app = buildApp({ db, now: () => new Date(current), appOrigin: TEST_ORIGIN, rateLimit: opts.rateLimit ?? false });
+  return {
+    app,
+    db,
+    setNow(iso: string) {
+      current = new Date(iso);
+    },
+  };
+}
+
+let usrahSeq = 0;
+
+/** Inserts a usrah row directly (unique test invite code unless given). Returns its id. */
+export function createTestUsrah(db: Db, name = 'Usrah Ujian', inviteCode?: string): number {
+  const code = inviteCode ?? `TST-${2000 + ++usrahSeq}`;
+  return db.insert(usrah).values({ name, inviteCode: code, createdAt: new Date(DEFAULT_NOW) }).returning().get().id;
+}
+
+/**
+ * Inserts a user (email normalised, password defaults to 'katalaluan123').
+ * Pass usrahId (+ role, default 'member') to also create an active membership.
+ */
+export async function createUser(
+  db: Db,
+  u: {
+    email: string;
+    name: string;
+    password?: string;
+    isAdmin?: boolean;
+    mustChangePassword?: boolean;
+    phone?: string | null;
+    usrahId?: number;
+    role?: 'naqib' | 'member';
+    joinedAt?: Date;
+  },
+): Promise<number> {
+  const createdAt = u.joinedAt ?? new Date(DEFAULT_NOW);
+  const id = db
+    .insert(users)
+    .values({
+      email: u.email.trim().toLowerCase(),
+      name: u.name,
+      phone: u.phone ?? null,
+      passwordHash: await hashPassword(u.password ?? TEST_PASSWORD),
+      isAdmin: u.isAdmin ?? false,
+      mustChangePassword: u.mustChangePassword ?? false,
+      createdAt,
+    })
+    .returning()
+    .get().id;
+  if (u.usrahId !== undefined) {
+    db.insert(memberships).values({ userId: id, usrahId: u.usrahId, role: u.role ?? 'member', joinedAt: createdAt }).run();
+  }
+  return id;
+}
+
+/** Logs in via the API and returns the cookie header value `sid=...`. Throws if login fails. */
+export async function loginAs(app: FastifyInstance, email: string, password = TEST_PASSWORD): Promise<string> {
+  const res = await api(app).post('/api/auth/login', { email, password });
+  if (res.statusCode !== 200) throw new Error(`login failed for ${email}: ${res.statusCode} ${res.body}`);
+  const setCookie = ([] as string[]).concat(res.headers['set-cookie'] ?? []);
+  const sid = setCookie.find((c) => c.startsWith('sid='));
+  if (!sid) throw new Error('no sid cookie in login response');
+  return sid.split(';')[0];
+}
+
+/** Request helpers that send our Origin, a JSON content-type and (optionally) the session cookie. */
+export function api(app: FastifyInstance, cookie?: string) {
+  const headers = (): Record<string, string> => ({
+    origin: TEST_ORIGIN,
+    'content-type': 'application/json',
+    ...(cookie ? { cookie } : {}),
+  });
+  const send = (method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', url: string, body?: unknown) =>
+    app.inject({
+      method,
+      url,
+      headers: headers(),
+      ...(body === undefined ? {} : { payload: JSON.stringify(body) }),
+    }) as Promise<LightMyRequestResponse>;
+  return {
+    get: (url: string) => send('GET', url),
+    post: (url: string, body?: unknown) => send('POST', url, body),
+    put: (url: string, body?: unknown) => send('PUT', url, body),
+    patch: (url: string, body?: unknown) => send('PATCH', url, body),
+    del: (url: string, body?: unknown) => send('DELETE', url, body),
+  };
+}

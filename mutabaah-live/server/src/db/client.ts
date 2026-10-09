@@ -27,3 +27,8 @@ export function openDb(url: string): Db {
 export function migrateDb(db: Db): void {
   migrate(db, { migrationsFolder });
 }
+
+/** Closes the underlying better-sqlite3 connection. */
+export function closeDb(db: Db): void {
+  (db as Db & { $client: Database.Database }).$client.close();
+}
