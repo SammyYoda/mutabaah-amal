@@ -101,7 +101,7 @@ test('joinedOn trims the period', () => {
 test('future days and empty ranges', () => {
   expect(periodScore([tilawah], [], { from: '2026-10-10', to: '2026-10-16', today: '2026-10-09', joinedOn: '2026-01-01' }))
     .toEqual({ met: 0, expected: 0, percentage: 0 });
-  expect(periodScore([tilawah], [], { from: '2026-10-08', to: '2026-10-12', today: '2026-10-09', joinedOn: '2026-01-01' }).expected).toBe(2);
+  expect(periodScore([tilawah], [], { from: '2026-10-08', to: '2026-10-12', today: '2026-10-09', joinedOn: '2026-01-01' }).expected).toBe(1); // R19: today unmet is not expected
 });
 
 test.each([[80, 'A'], [79, 'B'], [60, 'B'], [59, 'C'], [0, 'C']])('statusBand(%i) = %s', (p, l) => {
@@ -142,5 +142,22 @@ describe('whole-period judging (R6)', () => {
     const inf = mk(6, 'bulanan', 'check', 2);
     expect(periodScore([inf], [log('2026-09-03', { 6: true })], { from: '2026-09-01', to: '2026-10-09', ...base }))
       .toEqual({ met: 0, expected: 1, percentage: 0 });
+  });
+});
+
+describe('in-progress today (R19)', () => {
+  const opts = { from: '2026-10-08', to: '2026-10-09', today: '2026-10-09', joinedOn: '2026-01-01' };
+  test('today unmet is not expected', () => {
+    expect(periodScore([tilawah], [], { ...opts, from: '2026-10-09' })).toEqual({ met: 0, expected: 0, percentage: 0 });
+  });
+  test('today met counts as met and expected', () => {
+    expect(periodScore([tilawah], [log('2026-10-09', { 1: 5 })], { ...opts, from: '2026-10-09' }))
+      .toEqual({ met: 1, expected: 1, percentage: 100 });
+  });
+  test('yesterday unmet is expected', () => {
+    expect(periodScore([tilawah], [], opts)).toEqual({ met: 0, expected: 1, percentage: 0 });
+  });
+  test('dailyScore is unchanged for today', () => {
+    expect(dailyScore([tilawah], null, '2026-10-09')).toEqual({ met: 0, total: 1, percentage: 0 });
   });
 });

@@ -121,6 +121,32 @@ describe('GET /api/usrah/summary', () => {
     expect(drop).toMatchObject({ memberId: id, text: 'Skor Dina Dahlia minggu ini menurun 80 mata' });
   });
 
+  it('member joined today with no logs is Baru: no level, no level_c, excluded from averages (R19)', async () => {
+    const s = await setup();
+    const before = (await api(s.app, s.a.naqib.cookie).get('/api/usrah/summary')).json();
+    const nid = await createUser(s.db, { email: 'new@x.test', name: 'Baru Hari Ini', usrahId: s.a.usrahId, joinedAt: new Date('2026-10-09T01:00:00Z') });
+    const j = (await api(s.app, s.a.naqib.cookie).get('/api/usrah/summary')).json();
+    const row = j.roster.find((m: any) => m.id === nid);
+    expect(row).toMatchObject({ percentage4w: 0, level: null, lastLogDate: null });
+    expect(j.alerts.filter((x: any) => x.memberId === nid)).toEqual([]);
+    expect(j.kpis.avg4w).toBe(before.kpis.avg4w);
+    expect(j.kpis.avgThisWeek).toBe(before.kpis.avgThisWeek);
+    expect(j.usrah.memberCount).toBe(4);
+    const nc = await loginAs(s.app, 'new@x.test');
+    const me = (await api(s.app, nc).get('/api/me/analytics')).json();
+    expect(me.status).toEqual({ percentage: 0, level: null, label: 'Baru' });
+    const prof = (await api(s.app, s.a.naqib.cookie).get(`/api/members/${nid}`)).json();
+    expect(prof.status).toEqual({ percentage: 0, level: null, label: 'Baru' });
+  });
+
+  it('avg4w is 0 when every member is Baru', async () => {
+    const t = makeTestApp();
+    const a = await seedUsrah(t.app, t.db, 'U');
+    await createUser(t.db, { email: 'n@x.test', name: 'N', usrahId: a.usrahId, joinedAt: new Date('2026-10-09T01:00:00Z') });
+    const j = (await api(t.app, a.naqib.cookie).get('/api/usrah/summary')).json();
+    expect(j.kpis).toMatchObject({ avg4w: 0, avgThisWeek: 0 });
+  });
+
   it('403 for a member; 401 unauthenticated', async () => {
     const s = await setup();
     expect((await api(s.app, s.aliCookie).get('/api/usrah/summary')).statusCode).toBe(403);

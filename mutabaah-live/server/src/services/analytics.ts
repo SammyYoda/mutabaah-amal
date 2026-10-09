@@ -27,8 +27,9 @@ export function scoreOver(ctx: MemberCtx, from: string, to: string, items: SA[] 
 
 export function statusOf(ctx: MemberCtx) {
   const w = windows(ctx.today);
-  const percentage = scoreOver(ctx, w.last4w.from, w.last4w.to).percentage;
-  return { percentage, ...statusBand(percentage) };
+  const r = scoreOver(ctx, w.last4w.from, w.last4w.to);
+  if (r.expected === 0) return { percentage: 0, level: null as string | null, label: 'Baru' };
+  return { percentage: r.percentage, ...statusBand(r.percentage) };
 }
 
 /** N weekly points, oldest first; the current week is clipped to today. */
@@ -66,14 +67,16 @@ export function byCategory(ctx: MemberCtx, rows: AmalanRow[]) {
 export type Alert = { memberId: number; name: string; kind: 'no_log_3d' | 'drop' | 'level_c'; text: string };
 
 export type RosterEntry = {
-  id: number; name: string; initials: string; percentage4w: number; level: string; lastLogDate: string | null;
-  thisWeek: number; prev4w: { expected: number; percentage: number }; loggedToday: boolean; prayerPct: number; joinedOn: string;
+  id: number; name: string; initials: string; percentage4w: number; level: string | null; lastLogDate: string | null;
+  baru: boolean; thisWeek: number; thisWeekExpected: number; prev4w: { expected: number; percentage: number }; loggedToday: boolean; prayerPct: number; joinedOn: string;
 };
 
 /** Everything the summary needs about one member, from already-loaded data. */
 export function memberMetrics(id: number, name: string, ctx: MemberCtx, logRows: LogRow[]): RosterEntry {
   const w = windows(ctx.today);
-  const p4 = scoreOver(ctx, w.last4w.from, w.last4w.to).percentage;
+  const r4 = scoreOver(ctx, w.last4w.from, w.last4w.to);
+  const p4 = r4.percentage;
+  const tw = scoreOver(ctx, w.thisWeek.from, w.thisWeek.to);
   const prev = scoreOver(ctx, w.prev4w.from, w.prev4w.to);
   const prayers = ctx.amalan.filter((a) => a.inputType === 'prayers');
   const dayStart = w.last4w.from > ctx.joinedOn ? w.last4w.from : ctx.joinedOn;
@@ -90,9 +93,11 @@ export function memberMetrics(id: number, name: string, ctx: MemberCtx, logRows:
   }
   const dates = logRows.map((l) => l.date);
   return {
-    id, name, initials: initialsOf(name), percentage4w: p4, level: statusBand(p4).level,
-    lastLogDate: dates.length ? dates.reduce((a, b) => (a > b ? a : b)) : null,
-    thisWeek: scoreOver(ctx, w.thisWeek.from, w.thisWeek.to).percentage,
+    id, name, initials: initialsOf(name), percentage4w: p4, level: r4.expected === 0 ? null : statusBand(p4).level,
+    baru: r4.expected === 0,
+    lastLogDate: null, // filled in by the route (all-time max)
+    thisWeek: tw.percentage,
+    thisWeekExpected: tw.expected,
     prev4w: { expected: prev.expected, percentage: prev.percentage },
     loggedToday: dates.includes(ctx.today),
     prayerPct: days > 0 && prayers.length > 0 ? (trueCount / (5 * days)) * 100 : 0,
@@ -102,8 +107,8 @@ export function memberMetrics(id: number, name: string, ctx: MemberCtx, logRows:
 
 export function buildKpis(roster: RosterEntry[]) {
   return {
-    avg4w: mean(roster.map((m) => m.percentage4w)),
-    avgThisWeek: mean(roster.map((m) => m.thisWeek)),
+    avg4w: mean(roster.filter((m) => !m.baru).map((m) => m.percentage4w)),
+    avgThisWeek: mean(roster.filter((m) => m.thisWeekExpected > 0).map((m) => m.thisWeek)),
     loggedToday: roster.filter((m) => m.loggedToday).length,
     prayerAvg4w: mean(roster.map((m) => m.prayerPct)),
   };
@@ -118,10 +123,10 @@ export function buildAlerts(roster: RosterEntry[], logDatesByUser: Map<number, S
     if (m.joinedOn <= cutoff && !recent.some((d) => dates.has(d))) {
       alerts.push({ memberId: m.id, name: m.name, kind: 'no_log_3d', text: `${m.name} tidak merekod amalan selama 3 hari` });
     }
-    if (m.prev4w.expected >= 1 && m.prev4w.percentage - m.thisWeek >= 20) {
+    if (m.prev4w.expected >= 1 && m.thisWeekExpected > 0 && m.prev4w.percentage - m.thisWeek >= 20) {
       alerts.push({ memberId: m.id, name: m.name, kind: 'drop', text: `Skor ${m.name} minggu ini menurun ${m.prev4w.percentage - m.thisWeek} mata` });
     }
-    if (m.level === 'C') {
+    if (!m.baru && m.level === 'C') {
       alerts.push({ memberId: m.id, name: m.name, kind: 'level_c', text: `${m.name} berada di Level C (Perlu Perhatian)` });
     }
   }

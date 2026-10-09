@@ -70,8 +70,11 @@ export function periodScore(amalan, logs, { from, to, today, joinedOn }) {
     const log = byDate.get(d);
     for (const a of amalan) {
       if (a.freq !== 'harian' || !isActiveOn(a, d)) continue;
+      const isMet = isDayMet(a, log?.values?.[String(a.id)]);
+      // Today is still in progress: an unmet item is not yet expected (same idea as in-progress weeks/months).
+      if (d === today && !isMet) continue;
       expected++;
-      if (isDayMet(a, log?.values?.[String(a.id)])) met++;
+      if (isMet) met++;
     }
   }
 
