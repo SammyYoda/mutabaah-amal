@@ -75,31 +75,44 @@ export function periodScore(amalan, logs, { from, to, today, joinedOn }) {
     }
   }
 
-  /** Group days into periods; score items of the given freq. */
-  const scorePeriods = (freq, keyOf, containsToday) => {
-    const groups = new Map();
+  const monthBounds = (d) => {
+    const first = `${monthKey(d)}-01`;
+    const [y, m] = first.split('-').map(Number);
+    const next = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`;
+    return [first, addDays(next, -1)];
+  };
+  const weekBounds = (d) => [weekStart(d), addDays(weekStart(d), 6)];
+
+  // Weekly/monthly periods are judged whole: every period overlapping
+  // [start, end], evaluated over its full days clipped only to [joinedOn, today].
+  const scorePeriods = (freq, keyOf, boundsOf) => {
+    const seen = new Set();
     for (const d of days) {
       const k = keyOf(d);
-      if (!groups.has(k)) groups.set(k, []);
-      groups.get(k).push(d);
-    }
-    for (const pDays of groups.values()) {
-      const last = pDays[pDays.length - 1];
-      const pLogs = pDays.map((d) => byDate.get(d)).filter(Boolean);
-      const inProgress = containsToday(pDays[0]);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const [pFirst, pLast] = boundsOf(d);
+      const evalFrom = pFirst > joinedOn ? pFirst : joinedOn;
+      const evalTo = pLast < today ? pLast : today;
+      const evalDays = dateRange(evalFrom, evalTo);
+      if (evalDays.length === 0) continue;
+      const lastEval = evalDays[evalDays.length - 1];
+      const pLogs = evalDays.map((x) => byDate.get(x)).filter(Boolean);
+      const completed = pLast < today;
+      const fullyJoined = pFirst >= joinedOn;
       for (const a of amalan) {
-        if (a.freq !== freq || !isActiveOn(a, last)) continue;
+        if (a.freq !== freq || !isActiveOn(a, lastEval)) continue;
         if (periodValue(a, pLogs) >= a.targetVal) {
           met++;
           expected++;
-        } else if (!inProgress) {
+        } else if (completed && fullyJoined) {
           expected++;
         }
       }
     }
   };
-  scorePeriods('mingguan', weekStart, (d) => today >= weekStart(d) && today <= addDays(weekStart(d), 6));
-  scorePeriods('bulanan', monthKey, (d) => monthKey(d) === monthKey(today));
+  scorePeriods('mingguan', weekStart, weekBounds);
+  scorePeriods('bulanan', monthKey, monthBounds);
 
   return { met, expected, percentage: pct(met, expected) };
 }

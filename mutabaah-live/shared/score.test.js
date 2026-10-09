@@ -112,3 +112,35 @@ test('statusBand labels', () => {
   expect(statusBand(70).label).toBe('Sederhana (Level B)');
   expect(statusBand(10).label).toBe('Perlu Perhatian (Level C)');
 });
+
+describe('whole-period judging (R6)', () => {
+  const base = { today: '2026-10-09', joinedOn: '2026-01-01' };
+  test('rolling window with mid-week start judges the whole edge week', () => {
+    const logs = [log('2026-09-08', { 5: 3 }), log('2026-09-13', { 5: 1 })];
+    // W37 (09-07..13) 3+1>=3 met; W38..W40 empty+completed -> expected; W41 in progress unmet -> excluded
+    expect(periodScore([riadah], logs, { from: '2026-09-12', to: '2026-10-09', ...base }))
+      .toEqual({ met: 1, expected: 4, percentage: 25 });
+  });
+  test('logs in the same week but outside from/to still count', () => {
+    expect(periodScore([riadah], [log('2026-09-29', { 5: 3 })], { from: '2026-10-02', to: '2026-10-04', ...base }))
+      .toEqual({ met: 1, expected: 1, percentage: 100 });
+  });
+  test('joined partway through a completed week: unmet not expected, met counted', () => {
+    const opts = { from: '2026-09-28', to: '2026-10-04', today: '2026-10-09', joinedOn: '2026-10-01' };
+    expect(periodScore([riadah], [], opts)).toEqual({ met: 0, expected: 0, percentage: 0 });
+    expect(periodScore([riadah], [log('2026-10-02', { 5: 3 }), log('2026-09-29', { 5: 9 })], opts))
+      .toEqual({ met: 1, expected: 1, percentage: 100 });
+  });
+  test('mingguan item deactivated mid-week is judged by activity on the last evaluation day', () => {
+    const q = mk(4, 'mingguan', 'check', 1, { deactivatedOn: '2026-10-02' });
+    const opts = { from: '2026-09-28', to: '2026-10-04', ...base };
+    expect(periodScore([q], [], opts)).toEqual({ met: 0, expected: 0, percentage: 0 });
+    const q2 = mk(4, 'mingguan', 'check', 1, { deactivatedOn: '2026-10-05' });
+    expect(periodScore([q2], [], opts)).toEqual({ met: 0, expected: 1, percentage: 0 });
+  });
+  test('completed unmet month is expected; in-progress month is not', () => {
+    const inf = mk(6, 'bulanan', 'check', 2);
+    expect(periodScore([inf], [log('2026-09-03', { 6: true })], { from: '2026-09-01', to: '2026-10-09', ...base }))
+      .toEqual({ met: 0, expected: 1, percentage: 0 });
+  });
+});

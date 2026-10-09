@@ -154,10 +154,10 @@ Pure functions used by both server and browser so numbers always agree.
 - **Monthly items** (*bulanan*): the same, aggregated over the calendar month.
 - **Period score** (dashboards, Analitik weekly bars) = items met ÷ items expected, where
   items expected = (harian items × days elapsed in period) + (mingguan items × ISO weeks overlapping the period) + (bulanan items × calendar months overlapping the period),
-  and items met counts each harian item per day, each mingguan item per week, and each bulanan item per month that met its target. Days in the future are excluded.
+  and items met counts each harian item per day, each mingguan item per week, and each bulanan item per month that met its target. Days in the future are excluded. Mingguan/bulanan periods are judged whole: every ISO week / calendar month overlapping the range is aggregated over its full days (clipped only to the member's joined date and today, not to the range), and the item counts if it was active on the last of those days.
 - **Status band** (replaces the hard-coded `status`): ≥ 80% *Teguh (Level A)*, 60–79% *Sederhana (Level B)*, < 60% *Perlu Perhatian (Level C)*, over the last 4 weeks.
 - **New members:** a member's period scores start from their membership `joined_at` date; days before joining are neither expected nor met.
-- **In-progress periods:** a mingguan/bulanan period that contains today is counted in *items expected* only if already met, so scores do not drop at the start of every week/month.
+- **In-progress and partial periods:** an unmet mingguan/bulanan period counts in *items expected* only if it is completed (does not contain today) and began on or after the member's joined date; an in-progress period, or one the member joined partway through, counts only if already met, so scores do not drop at the start of every week/month.
 - Dates are in the usrah's timezone, fixed to `Asia/Kuala_Lumpur` in v1.
 
 ## 9. API
