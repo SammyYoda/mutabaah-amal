@@ -150,3 +150,4 @@ Ruling R25: admin reset-password UI (spec §5.5) is owned by Task 13 — admin l
 Ruling R26: Task 11 also hardens the router (Task 10 minors 1, 3, 5): own-property route lookup (#constructor etc.), clearSession() on 403 PASSWORD_CHANGE_REQUIRED, render/init exceptions shown in the "Cuba lagi" error card — Task 11 is the first real view on the router; cost: slightly larger Task 11.
 Task 10: minor (deferred): shownHash can drift during back-nav while /auth/me pending; bell dropdown closes on header re-render; test gaps (logout clears session, login setSession, escaping of notification text / naqib name, removed naqib in /auth/me)
 Task 10: complete (commits 50f201a..480b7d3, review clean)
+Task 11: dispatched (base cbb189e, implementer agent a76b006cb9c4204b8, opus; carries R22, R26)
