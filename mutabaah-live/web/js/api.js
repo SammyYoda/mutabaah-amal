@@ -26,9 +26,20 @@ const PUBLIC_ROUTES = new Set(['login', 'daftar']);
 /** @type {Array<() => void>} */
 const unauthenticatedListeners = [];
 
+/** @type {Array<() => void>} */
+const passwordChangeListeners = [];
+
 /** Registers a callback run on every 401 (session.js uses it to drop its cached session). */
 export function onUnauthenticated(fn) {
   unauthenticatedListeners.push(fn);
+}
+
+/**
+ * Registers a callback run on every 403 PASSWORD_CHANGE_REQUIRED (session.js uses it to forget the cached
+ * session, so the router refetches /auth/me and sees mustChangePassword).
+ */
+export function onPasswordChangeRequired(fn) {
+  passwordChangeListeners.push(fn);
 }
 
 function currentRoute() {
@@ -73,6 +84,7 @@ export async function request(method, path, body) {
     for (const fn of unauthenticatedListeners) fn();
     if (!PUBLIC_ROUTES.has(currentRoute())) window.location.hash = '#login';
   } else if (res.status === 403 && code === 'PASSWORD_CHANGE_REQUIRED') {
+    for (const fn of passwordChangeListeners) fn();
     window.location.hash = '#tukar-kata-laluan';
   }
   throw new ApiError(res.status, code, message, err?.fields);

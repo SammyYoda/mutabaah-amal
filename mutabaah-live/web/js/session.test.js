@@ -1,3 +1,4 @@
+import { request } from './api.js';
 import { loadSession, getSession, clearSession, setSession, defaultRouteFor, roleOf } from './session.js';
 
 const json = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
@@ -34,6 +35,18 @@ describe('session', () => {
     clearSession();
     await loadSession();
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('a 403 PASSWORD_CHANGE_REQUIRED drops the cached session so the next load refetches', async () => {
+    await loadSession();
+    expect(getSession()).toEqual(ME);
+    const forced = { ...ME, user: { ...ME.user, mustChangePassword: true } };
+    fetchMock.mockResolvedValueOnce(json(403, { error: { code: 'PASSWORD_CHANGE_REQUIRED', message: 'Sila tukar kata laluan' } }));
+    await expect(request('GET', '/logs?from=2026-10-01&to=2026-10-09')).rejects.toMatchObject({ code: 'PASSWORD_CHANGE_REQUIRED' });
+    expect(getSession()).toBeNull();
+    fetchMock.mockResolvedValueOnce(json(200, forced));
+    await expect(loadSession()).resolves.toEqual(forced);
+    expect(defaultRouteFor(getSession())).toBe('tukar-kata-laluan');
   });
 
   it('throws non-401 errors', async () => {

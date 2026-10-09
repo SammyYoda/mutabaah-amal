@@ -7,7 +7,9 @@
  *     roles: Array<'member'|'naqib'|'admin'|'public'>,
  *     load?: (params: URLSearchParams) => Promise<data>,   // skeleton shown while pending
  *     render: (data) => string,                           // HTML for #app-main (escape API strings!)
- *     init?: (data) => void }                             // bind handlers after render
+ *     init?: (data) => void | (() => unknown) }           // bind handlers after render; may return a
+ *                                                         // leave hook, awaited before the next route runs
+ *                                                         // (e.g. to flush a pending save)
  *
  * This module has no side effects on import; js/main.js calls startApp().
  */
@@ -20,6 +22,7 @@ import { loginRoute } from './views/login.js';
 import { daftarRoute } from './views/daftar.js';
 import { tukarKataLaluanRoute } from './views/tukarKataLaluan.js';
 import { adminRoute } from './views/admin.js';
+import { hariIniRoute } from './views/hariIni.js';
 
 const APP = "Mutaba'ah Amal";
 const PUBLIC_ROUTES = new Set(['login', 'daftar']);
@@ -69,7 +72,7 @@ export function defaultRoutes() {
     'tukar-kata-laluan': tukarKataLaluanRoute,
     admin: adminRoute,
     // Placeholders — replaced when each view is migrated (Tasks 11–13).
-    'hari-ini': placeholderRoute('Hari Ini', ['member']),
+    'hari-ini': hariIniRoute,
     analitik: placeholderRoute('Analitik', ['member']),
     bimbingan: placeholderRoute('Bimbingan', ['member']),
     ringkasan: placeholderRoute('Ringkasan Usrah', ['naqib']),
@@ -123,6 +126,37 @@ export class AppRouter {
     this.shownHash = null;
     /** @type {Array<{id,type,text,link,createdAt,read}>} */
     this.notifications = [];
+    /** @type {(() => unknown) | null} leave hook returned by the current route's init */
+    this.leaveHook = null;
+    /** @type {Promise<void> | null} the leave hook currently running (every navigation waits for it) */
+    this.leaving = null;
+  }
+
+  /** The route registered under `path` (own properties only, so '#constructor' is not a route). */
+  routeFor(path) {
+    return Object.hasOwn(this.routes, path) ? this.routes[path] : undefined;
+  }
+
+  /** Runs the current route's leave hook (once) and waits for any hook already running. Never throws. */
+  async runLeaveHook() {
+    const hook = this.leaveHook;
+    this.leaveHook = null;
+    if (hook) {
+      const prev = this.leaving;
+      const run = (async () => {
+        if (prev) await prev;
+        try {
+          await hook();
+        } catch {
+          /* a failing hook must not block navigation */
+        }
+      })();
+      this.leaving = run;
+      run.then(() => {
+        if (this.leaving === run) this.leaving = null;
+      });
+    }
+    if (this.leaving) await this.leaving;
   }
 
   /** Listens for hash changes and document clicks (closing the bell dropdown). */
@@ -148,9 +182,9 @@ export class AppRouter {
   /** Picks the route to show for `path` given the session. */
   resolvePath(path, me) {
     const role = roleOf(me);
-    if (!role) return PUBLIC_ROUTES.has(path) && this.routes[path] ? path : 'login';
+    if (!role) return PUBLIC_ROUTES.has(path) && this.routeFor(path) ? path : 'login';
     if (me.user.mustChangePassword) return 'tukar-kata-laluan';
-    const route = this.routes[path];
+    const route = this.routeFor(path);
     if (!route || PUBLIC_ROUTES.has(path) || !route.roles.includes(role)) return defaultRouteFor(me);
     return path;
   }
@@ -159,6 +193,8 @@ export class AppRouter {
     const token = ++this.token;
     const stale = () => token !== this.token;
     const mainEl = document.getElementById('app-main');
+    await this.runLeaveHook();
+    if (stale()) return;
     let { path, params } = parseHash();
 
     let me;
@@ -183,7 +219,7 @@ export class AppRouter {
       params = new URLSearchParams();
     }
     this.shownHash = window.location.hash;
-    const route = this.routes[path];
+    const route = this.routeFor(path);
     const routeChanged = this.currentPath !== path;
     this.currentPath = path;
     document.title = route.title;
@@ -205,8 +241,16 @@ export class AppRouter {
       }
       if (stale()) return;
     }
-    if (mainEl) mainEl.innerHTML = route.render(data);
-    route.init?.(data);
+    try {
+      if (mainEl) mainEl.innerHTML = route.render(data);
+      const hook = route.init?.(data);
+      if (typeof hook === 'function') this.leaveHook = hook;
+    } catch (err) {
+      if (mainEl) {
+        mainEl.innerHTML = errorCardHtml(err?.message ?? 'Ralat tidak dijangka.');
+        this.bindRetry(mainEl);
+      }
+    }
   }
 
   bindRetry(mainEl) {

@@ -22,6 +22,8 @@ function mockApi(me, extra = {}) {
     if (url === '/api/auth/me') return me ? json(200, me) : json(401, { error: { code: 'UNAUTHENTICATED', message: 'Sila log masuk' } });
     if (url === '/api/notifications') return json(200, []);
     if (url === '/api/admin/usrah') return json(200, []);
+    if (url === '/api/amalan') return json(200, []);
+    if (url.startsWith('/api/logs?')) return json(200, { logs: [], today: '2026-10-09', editableFrom: '2026-10-01' });
     return json(404, { error: { code: 'NOT_FOUND', message: 'Tidak dijumpai' } });
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -104,6 +106,29 @@ describe('AppRouter role routing', () => {
     expect(main().querySelector('#tukarForm')).not.toBeNull();
   });
 
+  it('#hari-ini renders the real Hari Ini view (no placeholder)', async () => {
+    mockApi(MEMBER);
+    history.replaceState(null, '', '#hari-ini');
+    await new AppRouter().handleRoute();
+    expect(main().textContent).not.toContain('Sedang dinaik taraf');
+    expect(main().querySelector('#save-pill')).not.toBeNull();
+    expect(main().textContent).toContain('Tiada amalan aktif untuk tarikh ini.');
+  });
+
+  it.each(['constructor', '__proto__', 'toString', 'hasOwnProperty'])('#%s (inherited property) → default route', async (name) => {
+    mockApi(MEMBER);
+    history.replaceState(null, '', `#${name}`);
+    await new AppRouter().handleRoute();
+    expect(route()).toBe('#hari-ini');
+  });
+
+  it('logged out + #constructor → login', async () => {
+    mockApi(null);
+    history.replaceState(null, '', '#constructor');
+    await new AppRouter().handleRoute();
+    expect(route()).toBe('#login');
+  });
+
   it('placeholder routes render the "Sedang dinaik taraf" card', async () => {
     mockApi(MEMBER);
     history.replaceState(null, '', '#analitik');
@@ -162,6 +187,62 @@ describe('AppRouter load lifecycle', () => {
     btn.click();
     await vi.waitFor(() => expect(main().querySelector('#probe')?.textContent).toBe('pulih'));
     expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  it('an exception in render shows the "Cuba lagi" card', async () => {
+    mockApi(MEMBER);
+    const r = { ...probe(async () => ({ text: 'x' })), render: () => { throw new Error('<i>Rosak</i>'); } };
+    history.replaceState(null, '', '#probe');
+    await new AppRouter({ routes: { probe: r } }).handleRoute();
+    expect(main().querySelector('[data-action="retry"]')).not.toBeNull();
+    expect(main().innerHTML).toContain('&lt;i&gt;Rosak&lt;/i&gt;');
+  });
+
+  it('an exception in init shows the "Cuba lagi" card, and retry re-runs the route', async () => {
+    mockApi(MEMBER);
+    const init = vi.fn().mockImplementationOnce(() => { throw new Error('init gagal'); });
+    const r = { ...probe(async () => ({ text: 'ok' })), init };
+    history.replaceState(null, '', '#probe');
+    await new AppRouter({ routes: { probe: r } }).handleRoute();
+    expect(main().textContent).toContain('init gagal');
+    main().querySelector('[data-action="retry"]').click();
+    await vi.waitFor(() => expect(main().querySelector('#probe')?.textContent).toBe('ok'));
+    expect(init).toHaveBeenCalledTimes(2);
+  });
+
+  it('a function returned by init runs (and is awaited) before the next route loads', async () => {
+    mockApi(MEMBER);
+    const order = [];
+    let finishLeave;
+    const leave = vi.fn(() => new Promise((res) => { order.push('leave'); finishLeave = () => { order.push('left'); res(); }; }));
+    const a = { ...probe(async () => ({ text: 'a' })), init: () => leave };
+    const b = { ...probe(async () => { order.push('load b'); return { text: 'b' }; }), init: vi.fn() };
+    const router = new AppRouter({ routes: { a, b } });
+    history.replaceState(null, '', '#a');
+    await router.handleRoute();
+    history.replaceState(null, '', '#b');
+    const nav = router.handleRoute();
+    await vi.waitFor(() => expect(leave).toHaveBeenCalledTimes(1));
+    expect(order).toEqual(['leave']);
+    finishLeave();
+    await nav;
+    expect(order).toEqual(['leave', 'left', 'load b']);
+    expect(main().querySelector('#probe').textContent).toBe('b');
+    history.replaceState(null, '', '#a');
+    await router.handleRoute();
+    expect(leave).toHaveBeenCalledTimes(1); // b returned no hook; a's hook ran only once
+  });
+
+  it('a rejecting leave hook does not block navigation', async () => {
+    mockApi(MEMBER);
+    const a = { ...probe(async () => ({ text: 'a' })), init: () => async () => { throw new Error('x'); } };
+    const b = probe(async () => ({ text: 'b' }));
+    const router = new AppRouter({ routes: { a, b } });
+    history.replaceState(null, '', '#a');
+    await router.handleRoute();
+    history.replaceState(null, '', '#b');
+    await router.handleRoute();
+    expect(main().querySelector('#probe').textContent).toBe('b');
   });
 
   it('a stale load (hash changed mid-load) does not render', async () => {

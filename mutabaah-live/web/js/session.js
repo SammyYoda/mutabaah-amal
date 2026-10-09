@@ -3,7 +3,7 @@
  * logged in. Shape (Me): { user: {id,name,email,phone,isAdmin,mustChangePassword},
  *                          usrah: {id,name,naqibName}|null, role: 'naqib'|'member'|null }
  */
-import { getMe, onUnauthenticated } from './api.js';
+import { getMe, onUnauthenticated, onPasswordChangeRequired } from './api.js';
 
 /** @type {any|null} the Me payload, or null when logged out / not loaded */
 let cached = null;
@@ -85,3 +85,4 @@ export function defaultRouteFor(me) {
 }
 
 onUnauthenticated(markLoggedOut);
+onPasswordChangeRequired(clearSession);
