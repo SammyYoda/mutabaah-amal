@@ -116,8 +116,10 @@ export async function logRoutes(app: FastifyInstance) {
         .from(dailyLogs)
         .where(and(eq(dailyLogs.userId, req.user.id), eq(dailyLogs.date, date)))
         .get();
-      const values = { ...(existing?.values ?? {}), ...incoming };
-      const notes = body.notes !== undefined ? body.notes : (existing?.notes ?? null);
+      // A row left over from another usrah (member rejoined elsewhere) must not leak into this one.
+      const base = existing && existing.usrahId === usrahId ? existing : undefined;
+      const values = { ...(base?.values ?? {}), ...incoming };
+      const notes = body.notes !== undefined ? body.notes : existing && !base ? '' : (base?.notes ?? null);
       if (existing) {
         return tx
           .update(dailyLogs)
