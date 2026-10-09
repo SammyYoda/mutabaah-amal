@@ -23,6 +23,8 @@ import { daftarRoute } from './views/daftar.js';
 import { tukarKataLaluanRoute } from './views/tukarKataLaluan.js';
 import { adminRoute } from './views/admin.js';
 import { hariIniRoute } from './views/hariIni.js';
+import { tetapanRoute } from './views/tetapan.js';
+import { bimbinganRoute } from './views/bimbingan.js';
 
 const APP = "Mutaba'ah Amal";
 /** A route's leave hook (e.g. flushing a pending save) gets this long before navigation goes on anyway. */
@@ -63,6 +65,7 @@ const NAV = {
     ['ringkasan', 'Ringkasan', 'dashboard', 'Ringkasan'],
     ['matriks', 'Matriks Amalan', 'grid_view', 'Matriks'],
     ['profil-ahli', 'Profil Ahli', 'groups', 'Profil'],
+    ['bimbingan', 'Bimbingan', 'forum', 'Bimbingan'],
     ['tetapan', 'Tetapan Sukatan', 'settings', 'Tetapan'],
   ],
   admin: [['admin', 'Admin', 'admin_panel_settings', 'Admin']],
@@ -77,11 +80,11 @@ export function defaultRoutes() {
     // Placeholders — replaced when each view is migrated (Tasks 11–13).
     'hari-ini': hariIniRoute,
     analitik: placeholderRoute('Analitik', ['member']),
-    bimbingan: placeholderRoute('Bimbingan', ['member']),
+    bimbingan: bimbinganRoute,
     ringkasan: placeholderRoute('Ringkasan Usrah', ['naqib']),
     matriks: placeholderRoute('Matriks Amalan', ['naqib']),
     'profil-ahli': placeholderRoute('Profil Ahli', ['naqib']),
-    tetapan: placeholderRoute('Tetapan Sukatan', ['naqib']),
+    tetapan: tetapanRoute,
   };
 }
 
