@@ -120,7 +120,7 @@ function removePending(key) {
 /**
  * @param {URLSearchParams} params
  * @returns {Promise<{ amalan: any[], logs: any[], today: string, editableFrom: string, activeDate: string,
- *   restored: { values: Record<string, unknown>, notes?: string } | null, droppedLocked: boolean }>}
+ *   explicitDate: boolean, restored: { values: Record<string, unknown>, notes?: string } | null, droppedLocked: boolean }>}
  */
 async function load(params) {
   const tarikh = params.get('tarikh');
@@ -150,7 +150,7 @@ async function load(params) {
       restored = pending;
     }
   }
-  return { amalan, logs, today, editableFrom, activeDate, restored, droppedLocked };
+  return { amalan, logs, today, editableFrom, activeDate, explicitDate: wanted !== null, restored, droppedLocked };
 }
 
 /** Mutable page state built from the loaded data (render and init each build their own). */
@@ -715,9 +715,36 @@ function initView(data) {
   };
   window.addEventListener('beforeunload', onUnload);
 
+  // A tab resumed on a new day (R33): save what is pending to the day it belongs to, then reload so
+  // the page shows the server's new today. Only when no ?tarikh= was given.
+  const browserDayAtLoad = todayKL();
+  let resuming = false;
+  const onResume = () => {
+    if (data.explicitDate || resuming || !root.isConnected) return; // a replaced view never acts
+    const now = todayKL();
+    if (now === st.today || now === browserDayAtLoad) return;
+    resuming = true;
+    captureNotes();
+    queue
+      .flush()
+      .catch(() => {})
+      .finally(() => window.router?.renderCurrent());
+  };
+  const onVisibility = () => {
+    if (document.visibilityState === 'visible') onResume();
+  };
+  /** @param {Event} e */
+  const onPageShow = (e) => {
+    if (/** @type {any} */ (e).persisted) onResume();
+  };
+  document.addEventListener('visibilitychange', onVisibility);
+  window.addEventListener('pageshow', onPageShow);
+
   /** @param {{ timedOut?: boolean }} [ctx] set by the router when it stopped waiting (it toasts then) */
   return async (ctx) => {
     window.removeEventListener('beforeunload', onUnload);
+    document.removeEventListener('visibilitychange', onVisibility);
+    window.removeEventListener('pageshow', onPageShow);
     captureNotes();
     disableInputs(); // no edit may be captured now and then dropped by close()
     if (queue.busy()) {

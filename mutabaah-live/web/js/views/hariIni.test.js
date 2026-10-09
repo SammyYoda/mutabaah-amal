@@ -498,3 +498,62 @@ describe('Hari Ini non-retryable save errors (R32)', () => {
     expect(saveLog).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('Hari Ini resumed on a new day (R33)', () => {
+  const KL = (iso) => new Date(`${iso}+08:00`);
+  let visibility;
+  beforeEach(() => {
+    visibility = Object.getOwnPropertyDescriptor(Document.prototype, 'visibilityState');
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' });
+    window.router = { renderCurrent: vi.fn() };
+  });
+  afterEach(() => {
+    delete document.visibilityState;
+    if (visibility) Object.defineProperty(Document.prototype, 'visibilityState', visibility);
+  });
+
+  it('visibilitychange after midnight flushes the queue, then re-renders (loads the new today)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(KL('2026-10-09T23:58:00'));
+    await mount();
+    plus(1).click();
+    vi.setSystemTime(KL('2026-10-10T07:00:00'));
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.waitFor(() => expect(window.router.renderCurrent).toHaveBeenCalledTimes(1));
+    expect(saveLog).toHaveBeenCalledWith(TODAY, { values: { 1: 2 } }); // yesterday's edit went to yesterday
+    expect(saveLog.mock.invocationCallOrder[0]).toBeLessThan(window.router.renderCurrent.mock.invocationCallOrder[0]);
+  });
+
+  it('pageshow from the back-forward cache on a new day re-renders too', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(KL('2026-10-09T22:00:00'));
+    await mount();
+    vi.setSystemTime(KL('2026-10-10T06:00:00'));
+    const ev = new Event('pageshow');
+    Object.defineProperty(ev, 'persisted', { value: true });
+    window.dispatchEvent(ev);
+    await vi.waitFor(() => expect(window.router.renderCurrent).toHaveBeenCalledTimes(1));
+  });
+
+  it('does nothing on the same day, with an explicit ?tarikh, or after leaving', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(KL('2026-10-09T12:00:00'));
+    const { leave } = await mount();
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(window.router.renderCurrent).not.toHaveBeenCalled();
+
+    vi.setSystemTime(KL('2026-10-10T07:00:00'));
+    await leave();
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(window.router.renderCurrent).not.toHaveBeenCalled();
+
+    vi.setSystemTime(KL('2026-10-09T12:00:00'));
+    await mount('tarikh=2026-10-08');
+    vi.setSystemTime(KL('2026-10-10T07:00:00'));
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(window.router.renderCurrent).not.toHaveBeenCalled();
+  });
+});
