@@ -7,11 +7,13 @@ import type { Db } from './db/client.js';
 import type { User, ActiveMembership } from './auth/sessions.js';
 import { AppError, MESSAGES, errorBody, errorHandler } from './errors.js';
 import { authRoutes } from './routes/auth.js';
+import { adminRoutes } from './routes/admin.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
     db: Db;
     now: () => Date;
+    appOrigin: string;
   }
   interface FastifyRequest {
     /** Set by requireUser/requireNaqib/requireAdmin; only valid on guarded routes. */
@@ -43,6 +45,7 @@ export function buildApp(opts: BuildAppOptions): FastifyInstance {
   const app = Fastify({ logger: opts.logger ?? false });
 
   app.decorate('db', opts.db);
+  app.decorate('appOrigin', opts.appOrigin);
   app.decorate('now', opts.now ?? (() => new Date()));
   app.decorateRequest('user', null as unknown as User);
   app.decorateRequest('membership', null);
@@ -90,6 +93,7 @@ export function buildApp(opts: BuildAppOptions): FastifyInstance {
   }
 
   app.register(authRoutes, { prefix: '/api/auth' });
+  app.register(adminRoutes, { prefix: '/api/admin' });
 
   if (opts.staticDir) {
     app.register(fastifyStatic, { root: opts.staticDir, wildcard: true });

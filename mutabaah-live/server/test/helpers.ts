@@ -101,3 +101,32 @@ export function api(app: FastifyInstance, cookie?: string) {
     del: (url: string, body?: unknown) => send('DELETE', url, body),
   };
 }
+
+let seedSeq = 0;
+
+/**
+ * Creates an admin, a usrah (POST /api/admin/usrah), a naqib invite and the naqib's signup,
+ * all through the real endpoints. Returns the usrah id, its member invite code and the naqib's session.
+ */
+export async function seedUsrah(app: FastifyInstance, db: Db, name = 'Usrah Ujian') {
+  const n = ++seedSeq;
+  const adminEmail = `admin${n}@seed.test`;
+  await createUser(db, { email: adminEmail, name: 'Admin Seed', isAdmin: true });
+  const adminCookie = await loginAs(app, adminEmail);
+  const created = await api(app, adminCookie).post('/api/admin/usrah', { name });
+  if (created.statusCode !== 201) throw new Error(`seed usrah failed: ${created.statusCode} ${created.body}`);
+  const { id: usrahId, inviteCode } = created.json() as { id: number; inviteCode: string };
+  const inv = await api(app, adminCookie).post(`/api/admin/usrah/${usrahId}/naqib-invite`);
+  if (inv.statusCode !== 201) throw new Error(`seed invite failed: ${inv.statusCode} ${inv.body}`);
+  const token = new URL((inv.json() as { link: string }).link.replace('/#', '/?#')).hash.split('jemputan=')[1];
+  const email = `naqib${n}@seed.test`;
+  const signup = await api(app).post('/api/auth/signup', {
+    name: 'Naqib Seed',
+    email,
+    password: TEST_PASSWORD,
+    naqibInvite: token,
+  });
+  if (signup.statusCode !== 201) throw new Error(`seed signup failed: ${signup.statusCode} ${signup.body}`);
+  const sid = ([] as string[]).concat(signup.headers['set-cookie'] ?? []).find((c) => c.startsWith('sid='))!;
+  return { usrahId, inviteCode, naqib: { id: (signup.json() as { user: { id: number } }).user.id, email, cookie: sid.split(';')[0] } };
+}

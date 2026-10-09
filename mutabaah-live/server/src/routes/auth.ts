@@ -1,12 +1,13 @@
 import type { FastifyInstance } from 'fastify';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { AppError } from '../errors.js';
-import { users, usrah } from '../db/schema.js';
+import { users, usrah, memberships, naqibInvites } from '../db/schema.js';
 import type { Db } from '../db/client.js';
 import { hashPassword, verifyPassword, getDummyHash } from '../auth/password.js';
 import {
   createSession,
+  hashToken,
   deleteSession,
   getActiveMembership,
   revokeUserSessions,
@@ -17,11 +18,16 @@ import {
 } from '../auth/sessions.js';
 import { setSessionCookie, clearSessionCookie } from '../auth/cookie.js';
 import { requireUser } from '../auth/guards.js';
+import { notify } from '../services/notify.js';
 
 export const normaliseEmail = (email: string) => email.trim().toLowerCase();
 
 const WRONG_CREDENTIALS = 'Emel atau kata laluan salah';
 const NO_MEMBERSHIP = 'Anda bukan lagi ahli mana-mana usrah. Sila hubungi naqib anda.';
+
+export const SIGNUP_RATE_LIMIT = { max: 10, timeWindow: '1 hour' };
+const BAD_CODE = 'Kod jemputan tidak sah';
+const DUPLICATE_EMAIL = 'Emel sudah didaftarkan';
 
 export const LOGIN_RATE_LIMIT = { max: 10, timeWindow: '15 minutes' };
 
@@ -29,6 +35,20 @@ const LoginBody = z.object({
   email: z.string().min(1).max(254),
   password: z.string().min(1).max(1024),
 });
+
+const SignupBody = z
+  .object({
+    name: z.string().trim().min(1).max(100),
+    email: z.string().trim().email().max(254),
+    phone: z.string().trim().max(30).optional(),
+    password: z.string().min(8).max(1024),
+    inviteCode: z.string().trim().min(1).max(32).optional(),
+    naqibInvite: z.string().trim().min(1).max(200).optional(),
+  })
+  .refine((b) => (b.inviteCode === undefined) !== (b.naqibInvite === undefined), {
+    message: 'Sila berikan kod jemputan atau pautan jemputan naqib sahaja',
+    path: ['inviteCode'],
+  });
 
 const ChangePasswordBody = z.object({
   currentPassword: z.string().min(1).max(1024),
@@ -88,6 +108,62 @@ export async function authRoutes(app: FastifyInstance) {
       return mePayload(app.db, user, membership);
     },
   );
+
+  app.post('/signup', { config: { rateLimit: { ...SIGNUP_RATE_LIMIT } } }, async (req, reply) => {
+    const body = SignupBody.parse(req.body);
+    const email = normaliseEmail(body.email);
+    const passwordHash = await hashPassword(body.password); // before the (synchronous) transaction
+    const now = app.now();
+    const code = body.inviteCode?.trim().toUpperCase();
+    const tokenHash = body.naqibInvite ? hashToken(body.naqibInvite) : undefined;
+
+    const userId = app.db.transaction((tx) => {
+      let usrahId: number;
+      let role: 'naqib' | 'member';
+      let inviteId: number | undefined;
+      if (code !== undefined) {
+        const u = tx.select({ id: usrah.id }).from(usrah).where(eq(usrah.inviteCode, code)).get();
+        if (!u) throw new AppError(400, 'VALIDATION_ERROR', BAD_CODE, { inviteCode: BAD_CODE });
+        usrahId = u.id;
+        role = 'member';
+      } else {
+        const inv = tx.select().from(naqibInvites).where(eq(naqibInvites.tokenHash, tokenHash!)).get();
+        if (!inv || inv.usedAt || now.getTime() > inv.expiresAt.getTime()) {
+          throw new AppError(400, 'VALIDATION_ERROR', BAD_CODE, { naqibInvite: BAD_CODE });
+        }
+        usrahId = inv.usrahId;
+        role = 'naqib';
+        inviteId = inv.id;
+      }
+      if (tx.select({ id: users.id }).from(users).where(eq(users.email, email)).get()) {
+        throw new AppError(409, 'CONFLICT', DUPLICATE_EMAIL, { email: DUPLICATE_EMAIL });
+      }
+      const id = tx
+        .insert(users)
+        .values({ email, name: body.name, phone: body.phone || null, passwordHash, createdAt: now })
+        .returning()
+        .get().id;
+      tx.insert(memberships).values({ userId: id, usrahId, role, joinedAt: now }).run();
+      if (inviteId !== undefined) tx.update(naqibInvites).set({ usedAt: now }).where(eq(naqibInvites.id, inviteId)).run();
+      if (role === 'member') {
+        const naqibs = tx
+          .select({ userId: memberships.userId })
+          .from(memberships)
+          .where(and(eq(memberships.usrahId, usrahId), eq(memberships.role, 'naqib'), isNull(memberships.removedAt)))
+          .all();
+        for (const n of naqibs) {
+          notify(tx as unknown as Db, n.userId, 'member_joined', `Ahli baru: ${body.name} telah menyertai usrah`, '#ringkasan', now);
+        }
+      }
+      return id;
+    });
+
+    const user = app.db.select().from(users).where(eq(users.id, userId)).get()!;
+    const membership = getActiveMembership(app.db, userId);
+    const token = createSession(app.db, userId, now);
+    setSessionCookie(reply, token, new Date(now.getTime() + SESSION_TTL_MS));
+    return reply.status(201).send(mePayload(app.db, user, membership));
+  });
 
   // Not guarded: logging out always succeeds and clears the cookie.
   app.post('/logout', async (req, reply) => {
