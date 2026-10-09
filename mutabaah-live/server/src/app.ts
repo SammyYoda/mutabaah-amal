@@ -8,6 +8,8 @@ import type { User, ActiveMembership } from './auth/sessions.js';
 import { AppError, MESSAGES, errorBody, errorHandler } from './errors.js';
 import { authRoutes } from './routes/auth.js';
 import { adminRoutes } from './routes/admin.js';
+import { amalanRoutes } from './routes/amalan.js';
+import { logRoutes } from './routes/logs.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -94,6 +96,8 @@ export function buildApp(opts: BuildAppOptions): FastifyInstance {
 
   app.register(authRoutes, { prefix: '/api/auth' });
   app.register(adminRoutes, { prefix: '/api/admin' });
+  app.register(amalanRoutes, { prefix: '/api' });
+  app.register(logRoutes, { prefix: '/api' });
 
   if (opts.staticDir) {
     app.register(fastifyStatic, { root: opts.staticDir, wildcard: true });
