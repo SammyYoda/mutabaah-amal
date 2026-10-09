@@ -137,3 +137,5 @@ export const markNotificationsRead = () => request('POST', '/notifications/read-
 export const adminListUsrah = () => request('GET', '/admin/usrah');
 export const adminCreateUsrah = (name) => request('POST', '/admin/usrah', { name });
 export const adminNaqibInvite = (usrahId) => request('POST', `/admin/usrah/${id(usrahId)}/naqib-invite`);
+/** Admin: reset any user's password → { temporaryPassword } (shown once). */
+export const adminResetPassword = (userId) => request('POST', `/admin/users/${id(userId)}/reset-password`);

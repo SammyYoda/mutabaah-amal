@@ -1,4 +1,4 @@
-import { request, ApiError, login, signup, logout, saveLog, getLogs, markNotificationsRead, adminNaqibInvite } from './api.js';
+import { request, ApiError, login, signup, logout, saveLog, getLogs, markNotificationsRead, adminNaqibInvite, adminResetPassword } from './api.js';
 
 function jsonResponse(status, body) {
   return {
@@ -152,5 +152,10 @@ describe('endpoint functions', () => {
   it('adminNaqibInvite posts to the usrah invite endpoint', async () => {
     await adminNaqibInvite(7);
     expect(call()).toMatchObject({ url: '/api/admin/usrah/7/naqib-invite', method: 'POST' });
+  });
+
+  it('adminResetPassword posts to the user reset endpoint', async () => {
+    await adminResetPassword(9);
+    expect(call()).toMatchObject({ url: '/api/admin/users/9/reset-password', method: 'POST' });
   });
 });

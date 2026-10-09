@@ -52,6 +52,17 @@ describe('/api/admin', () => {
     expect((await api(t.app, c).patch('/api/admin/usrah/9999', { name: 'x' })).statusCode).toBe(404);
   });
 
+  it('list exposes naqibId (active naqib with the lowest membership id) or null', async () => {
+    const t = makeTestApp();
+    const c = await admin(t);
+    const empty = (await api(t.app, c).post('/api/admin/usrah', { name: 'Kosong' })).json();
+    const s = await seedUsrah(t.app, t.db, 'Penuh');
+    await createUser(t.db, { email: 'n2@x.my', name: 'Naqib Dua', usrahId: s.usrahId, role: 'naqib' });
+    const list = (await api(t.app, c).get('/api/admin/usrah')).json() as any[];
+    expect(list.find((u) => u.id === empty.id)).toMatchObject({ naqibId: null, naqibName: null });
+    expect(list.find((u) => u.id === s.usrahId)).toMatchObject({ naqibId: s.naqib.id, naqibName: 'Naqib Seed' });
+  });
+
   it('reset-password', async () => {
     const t = makeTestApp();
     const c = await admin(t);

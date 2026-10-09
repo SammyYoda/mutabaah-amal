@@ -171,6 +171,34 @@ describe('admin view', () => {
     await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith('http://localhost:3000/#daftar?jemputan=tok"x'));
   });
 
+  it('"Set semula kata laluan naqib" only for usrah with a naqib: confirm → POST → modal with copy', async () => {
+    const withNaqib = [...list, { id: 5, name: 'Usrah <b>Y</b>', inviteCode: 'DEF-3456', memberCount: 2, naqibId: 77, naqibName: 'Naqib "Z"' }];
+    mount(adminRoute, withNaqib);
+    expect(document.querySelector('[data-reset-naqib="4"]')).toBeNull();
+    const btn = document.querySelector('[data-reset-naqib="77"]');
+    expect(btn.textContent).toContain('Set semula kata laluan naqib');
+    vi.stubGlobal('confirm', vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true));
+    btn.click();
+    await flush();
+    expect(fetchMock).not.toHaveBeenCalled();
+    fetchMock.mockResolvedValue(json(200, { temporaryPassword: 'Tmp7pAss9xyz' }));
+    btn.click();
+    await vi.waitFor(() => expect(document.querySelector('[data-temp-password-modal]')).not.toBeNull());
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/admin/users/77/reset-password');
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST');
+    const modal = document.querySelector('[data-temp-password-modal]');
+    expect(modal.querySelector('[data-temp-password]').value).toBe('Tmp7pAss9xyz');
+    expect(modal.textContent).toContain('Naqib "Z"');
+    expect(modal.querySelector('b')).toBeNull();
+    const writeText = vi.fn(async () => {});
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    vi.stubGlobal('isSecureContext', true);
+    modal.querySelector('[data-copy]').click();
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith('Tmp7pAss9xyz'));
+    modal.querySelector('[data-close]').click();
+    expect(document.querySelector('[data-temp-password-modal]')).toBeNull();
+  });
+
   it('create form posts the name then re-renders via the router', async () => {
     mount(adminRoute, list);
     window.router = { renderCurrent: vi.fn(async () => {}) };

@@ -2,7 +2,8 @@
  * View: Admin — usrah list, create usrah, naqib invite links.
  */
 
-import { adminListUsrah, adminCreateUsrah, adminNaqibInvite } from '../api.js';
+import { adminListUsrah, adminCreateUsrah, adminNaqibInvite, adminResetPassword } from '../api.js';
+import { showTempPasswordModal } from './tempPasswordModal.js';
 import { escapeHtml, copyText, setInlineError, showFieldErrors } from '../util.js';
 
 const fmtDate = (iso) =>
@@ -16,9 +17,15 @@ function rowHtml(u) {
       <td class="py-3 pr-3 tabular-nums">${escapeHtml(u.memberCount)}</td>
       <td class="py-3 pr-3">${u.naqibName ? escapeHtml(u.naqibName) : '<span class="text-on-surface-variant italic">Belum ada</span>'}</td>
       <td class="py-3 text-right">
-        <button class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-primary-container/40 text-primary-container hover:bg-teal-light text-xs font-semibold cursor-pointer disabled:opacity-60" data-invite="${escapeHtml(u.id)}" type="button">
-          <span class="material-symbols-outlined text-[16px]">person_add</span> Jemput Naqib
-        </button>
+        <div class="inline-flex flex-wrap justify-end gap-2">
+          ${u.naqibId != null ? `
+          <button class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-outline-variant/50 text-on-surface hover:bg-surface-container text-xs font-semibold cursor-pointer disabled:opacity-60" data-reset-naqib="${escapeHtml(u.naqibId)}" data-usrah-id="${escapeHtml(u.id)}" type="button">
+            <span class="material-symbols-outlined text-[16px]">lock_reset</span> Set semula kata laluan naqib
+          </button>` : ''}
+          <button class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-primary-container/40 text-primary-container hover:bg-teal-light text-xs font-semibold cursor-pointer disabled:opacity-60" data-invite="${escapeHtml(u.id)}" type="button">
+            <span class="material-symbols-outlined text-[16px]">person_add</span> Jemput Naqib
+          </button>
+        </div>
       </td>
     </tr>
     <tr class="hidden" data-invite-row="${escapeHtml(u.id)}"><td colspan="5" class="pb-3"></td></tr>`;
@@ -38,7 +45,7 @@ export function inviteBoxHtml(usrahName, invite) {
     </div>`;
 }
 
-/** @param {Array<{id,name,inviteCode,memberCount,naqibName}>} list */
+/** @param {Array<{id,name,inviteCode,memberCount,naqibId,naqibName}>} list */
 export function renderAdminView(list) {
   const rows = list.length
     ? list.map(rowHtml).join('')
@@ -81,6 +88,7 @@ export function renderAdminView(list) {
 }
 
 export function initAdminHandlers(list) {
+  bindNaqibReset(list);
   const form = document.getElementById('createUsrahForm');
   const errorEl = document.getElementById('createUsrahError');
   if (form) {
@@ -129,6 +137,26 @@ export function initAdminHandlers(list) {
             window.showToast?.('Tidak dapat menyalin secara automatik — salin pautan yang dipilih.', 'warning');
           }
         };
+      } catch (err) {
+        window.showToast?.(err?.message ?? 'Gagal — cuba lagi.', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    };
+  }
+}
+
+/** "Set semula kata laluan naqib": confirm → POST /admin/users/:id/reset-password → one-time modal. */
+function bindNaqibReset(list) {
+  for (const btn of document.querySelectorAll('[data-reset-naqib]')) {
+    btn.onclick = async () => {
+      const usrah = list.find((u) => String(u.id) === btn.getAttribute('data-usrah-id'));
+      const name = usrah?.naqibName ?? '';
+      if (!confirm(`Set semula kata laluan naqib ${name}? Semua sesi log masuknya akan ditamatkan.`)) return;
+      btn.disabled = true;
+      try {
+        const { temporaryPassword } = await adminResetPassword(btn.getAttribute('data-reset-naqib'));
+        showTempPasswordModal({ name, temporaryPassword });
       } catch (err) {
         window.showToast?.(err?.message ?? 'Gagal — cuba lagi.', 'error');
       } finally {

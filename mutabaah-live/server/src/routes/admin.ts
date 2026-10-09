@@ -27,10 +27,13 @@ export async function adminRoutes(app: FastifyInstance) {
   app.get('/usrah', async () => {
     const naqibName = sql<string | null>`(select u.name from memberships m join users u on u.id = m.user_id
       where m.usrah_id = usrah.id and m.role = 'naqib' and m.removed_at is null order by m.id limit 1)`;
+    // Same correlated subquery as naqibName: the active naqib with the lowest membership id.
+    const naqibId = sql<number | null>`(select m.user_id from memberships m
+      where m.usrah_id = usrah.id and m.role = 'naqib' and m.removed_at is null order by m.id limit 1)`;
     const memberCount = sql<number>`(select count(*) from memberships m
       where m.usrah_id = usrah.id and m.removed_at is null)`;
     return app.db
-      .select({ id: usrah.id, name: usrah.name, inviteCode: usrah.inviteCode, memberCount, naqibName })
+      .select({ id: usrah.id, name: usrah.name, inviteCode: usrah.inviteCode, memberCount, naqibId, naqibName })
       .from(usrah)
       .orderBy(usrah.id)
       .all();
