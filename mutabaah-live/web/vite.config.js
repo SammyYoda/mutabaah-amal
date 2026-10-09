@@ -9,7 +9,8 @@ export default defineConfig({
   server: {
     port: 3000,
     strictPort: true,
-    proxy: { '/api': 'http://localhost:3001' },
+    // API_URL overrides the API target when port 3001 is taken locally (e.g. API_URL=http://localhost:3101).
+    proxy: { '/api': process.env.API_URL ?? 'http://localhost:3001' },
     fs: { allow: ['..'] }, // ../shared lives outside the web root
   },
   build: {
