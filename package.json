@@ -1,0 +1,14 @@
+{
+  "name": "mutabaah-amal-ikram",
+  "version": "1.0.0",
+  "description": "Sistem Mutaba'ah Amal & Disiplin Ibadah Usrah An-Nur - Pertubuhan IKRAM Malaysia",
+  "type": "module",
+  "scripts": {
+    "dev": "vite mutabaah/stitch_mutaba_ah_amal_worship_tracker --port 3000 --host",
+    "start": "vite mutabaah/stitch_mutaba_ah_amal_worship_tracker --port 3000 --host",
+    "preview": "vite preview mutabaah/stitch_mutaba_ah_amal_worship_tracker --port 3000"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}

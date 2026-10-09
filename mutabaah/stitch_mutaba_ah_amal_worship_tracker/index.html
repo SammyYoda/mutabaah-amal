@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Mutaba'ah Amal - Usrah An-Nur | Tarbiyah IKRAM</title>
+  <meta name="description" content="Sistem Pemantauan Disiplin Ibadah & Muhasabah Harian Usrah An-Nur Pertubuhan IKRAM Malaysia"/>
+  <meta name="theme-color" content="#007a87"/>
+
+  <!-- Google Fonts: Plus Jakarta Sans & Material Symbols -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+
+  <!-- Tailwind CSS with Official Tarbiyah IKRAM Design System Tokens -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface-dim": "#ccdde5",
+            "sky-support": "#0369A1",
+            "on-primary-fixed-variant": "#004f57",
+            "on-secondary-fixed-variant": "#7a3000",
+            "on-primary": "#ffffff",
+            "tertiary": "#005b8b",
+            "sky-tint": "#E0F2FE",
+            "tertiary-fixed-dim": "#93ccff",
+            "primary-fixed": "#97f0ff",
+            "orange-surface": "#FFF4EC",
+            "background": "#f3faff",
+            "surface-bright": "#f3faff",
+            "secondary-fixed-dim": "#ffb693",
+            "secondary-container": "#fc7728",
+            "surface-variant": "#d5e5ed",
+            "tertiary-fixed": "#cce5ff",
+            "surface-container-high": "#dbebf3",
+            "on-surface-variant": "#3e494a",
+            "on-primary-fixed": "#001f24",
+            "error-container": "#ffdad6",
+            "primary": "#005f6a",
+            "inverse-primary": "#7ad4e2",
+            "teal-light": "#E6F5F6",
+            "on-error": "#ffffff",
+            "orange-vibrant": "#EA580C",
+            "ikram-orange": "#F37021",
+            "on-tertiary": "#ffffff",
+            "secondary": "#a04100",
+            "on-secondary-fixed": "#341000",
+            "tertiary-container": "#0074b0",
+            "success-amal": "#059669",
+            "on-tertiary-container": "#eaf3ff",
+            "on-error-container": "#93000a",
+            "on-background": "#0e1e24",
+            "success-surface": "#ECFDF5",
+            "primary-fixed-dim": "#7ad4e2",
+            "surface-container-highest": "#d5e5ed",
+            "teal-dark": "#005E68",
+            "inverse-on-surface": "#e3f3fc",
+            "on-tertiary-fixed": "#001d31",
+            "on-secondary": "#ffffff",
+            "surface": "#f3faff",
+            "outline-variant": "#bdc8cb",
+            "on-surface": "#0e1e24",
+            "primary-container": "#007a87",
+            "surface-container-low": "#e6f6ff",
+            "secondary-fixed": "#ffdbcb",
+            "error": "#ba1a1a",
+            "on-secondary-container": "#5d2300",
+            "outline": "#6e797b",
+            "on-tertiary-fixed-variant": "#004b73",
+            "inverse-surface": "#243339",
+            "surface-tint": "#006874",
+            "on-primary-container": "#d5f9ff",
+            "surface-container": "#e0f0f9",
+            "surface-container-lowest": "#ffffff"
+          },
+          borderRadius: {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          spacing: {
+            "gutter-desktop": "1.5rem",
+            "margin": "1rem",
+            "space-xl": "2rem",
+            "space-xs": "0.25rem",
+            "space-lg": "1.5rem",
+            "space-md": "1rem",
+            "space-sm": "0.5rem",
+            "gutter": "1rem",
+            "margin-desktop": "2rem"
+          },
+          fontFamily: {
+            sans: ["Plus Jakarta Sans", "system-ui", "sans-serif"],
+            "headline-lg-mobile": ["Plus Jakarta Sans"],
+            "numeral-counter": ["Plus Jakarta Sans"],
+            "label-sm": ["Plus Jakarta Sans"],
+            "label-lg": ["Plus Jakarta Sans"],
+            "headline-sm": ["Plus Jakarta Sans"],
+            "label-md": ["Plus Jakarta Sans"],
+            "display-lg": ["Plus Jakarta Sans"],
+            "headline-md": ["Plus Jakarta Sans"],
+            "body-lg": ["Plus Jakarta Sans"],
+            "body-sm": ["Plus Jakarta Sans"],
+            "headline-lg": ["Plus Jakarta Sans"],
+            "body-md": ["Plus Jakarta Sans"]
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Custom App CSS -->
+  <link rel="stylesheet" href="./css/style.css"/>
+</head>
+<body class="bg-background font-body-md text-on-surface min-h-screen flex flex-col justify-between">
+  
+  <!-- Global Application Header -->
+  <header id="app-header" class="fixed top-0 left-0 right-0 z-50 bg-surface-container-lowest shadow-[0_1px_8px_rgba(0,0,0,0.04)]"></header>
+
+  <!-- Master View Container -->
+  <main id="app-main" class="w-full bg-background min-h-screen flex-1">
+    <div class="flex items-center justify-center min-h-[60vh]">
+      <div class="flex flex-col items-center gap-3">
+        <span class="material-symbols-outlined text-4xl text-primary animate-spin">progress_activity</span>
+        <span class="text-sm font-semibold text-on-surface-variant">Memuatkan Mutaba'ah Amal...</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- Responsive Mobile Navigation Bar (Bottom) -->
+  <nav id="app-mobile-nav" class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface-container-lowest shadow-[0_-2px_10px_rgba(0,0,0,0.06)] px-margin py-1 flex items-center justify-around border-t border-outline-variant/30"></nav>
+
+  <!-- Application Footer -->
+  <footer id="app-footer" class="w-full bg-surface-container-low py-space-lg pb-24 lg:pb-space-lg border-t border-outline-variant/30 mt-auto">
+    <div class="max-w-[1200px] mx-auto px-margin md:px-margin-desktop flex flex-col sm:flex-row items-center justify-between gap-space-md text-on-surface-variant text-xs">
+      <div class="flex items-center gap-space-sm">
+        <span class="material-symbols-outlined text-[18px] text-primary-container">mosque</span>
+        <span class="font-semibold">© 1446H / <span id="footer-year">2025</span> Mutaba'ah Amal • Pertubuhan IKRAM Malaysia (Usrah An-Nur)</span>
+      </div>
+      <div class="flex items-center gap-space-md text-on-surface-variant">
+        <span>Disiplin Ruhani &amp; Muhasabah Kolektif</span>
+        <span>•</span>
+        <span class="text-primary-container font-medium">Naqib: Ustaz Hazwan Ismail</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- Main JavaScript Bundle -->
+  <script type="module" src="./js/app.js"></script>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+</body>
+</html>
