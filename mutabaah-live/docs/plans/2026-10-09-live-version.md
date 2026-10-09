@@ -26,7 +26,7 @@
 - Naqib invite: single use, valid 7 days. Member invite code: format `AAA-9999` (3 uppercase letters, dash, 4 digits — no `O`/`0`/`I`/`1` ambiguity: letters from `ABCDEFGHJKLMNPQRSTUVWXYZ`, digits `2–9`), reusable until regenerated.
 - Log edit window: `date ≤ today` and (same month as today, or previous month while today's day-of-month ≤ 7).
 - Status bands over the last 4 weeks: ≥ 80 → A *Teguh*, 60–79 → B *Sederhana*, < 60 → C *Perlu Perhatian*.
-- Env vars: `DATABASE_URL` (default `file:./data/mutabaah.db`), `PORT` (default `3001`), `APP_ORIGIN` (default `http://localhost:3000`), `NODE_ENV`.
+- Env vars: `DATABASE_URL` (default `file:./data/mutabaah.db`), `PORT` (default `3101`), `APP_ORIGIN` (default `http://localhost:3000`), `NODE_ENV`.
 
 ## Review Focus
 
@@ -409,7 +409,7 @@ test.each([[80,'A'],[79,'B'],[60,'B'],[59,'C'],[0,'C']])('statusBand(%i) = %s', 
 **Interfaces:**
 - Consumes: all `/api` endpoints from Tasks 4–9.
 - Produces:
-  - `web/vite.config.js`: port 3000; `server.proxy['/api'] = 'http://localhost:3001'`; `server.fs.allow = ['..']` (so `../shared` can be imported); `resolve.alias['@shared'] = '../shared'`.
+  - `web/vite.config.js`: port 3000; `server.proxy['/api'] = 'http://localhost:3101'`; `server.fs.allow = ['..']` (so `../shared` can be imported); `resolve.alias['@shared'] = '../shared'`.
   - `api.js`: `class ApiError extends Error { status, code }`; `request(method, path, body?) → Promise<any>` (`credentials: 'same-origin'`, JSON headers; throws `ApiError` from the error body; on 401 sets `location.hash = '#login'` unless already on `login`/`daftar`; on 403 `PASSWORD_CHANGE_REQUIRED` sets `#tukar-kata-laluan`). Named exports, one per endpoint, e.g. `login(email, password)`, `signup(payload)`, `logout()`, `changePassword(cur, next)`, `getAmalan()`, `getLogs(from, to)`, `saveLog(date, { values, notes })`, `getMyAnalytics(weeks)`, `getSummary()`, `getMatrix(weeks)`, `getMember(id)`, `resetMemberPassword(id)`, `removeMember(id)`, `createAmalan(a)`, `updateAmalan(id, patch)`, `deactivateAmalan(id)`, `getInviteCode()`, `regenerateInviteCode()`, `getGuidance()`, `sendGuidance(g)`, `replyGuidance(id, body)`, `markGuidanceRead(id)`, `getNotifications()`, `markNotificationsRead()`, `adminListUsrah()`, `adminCreateUsrah(name)`, `adminNaqibInvite(id)`.
   - `session.js`: `loadSession(force?) → Promise<Me|null>` (cached `/auth/me`; `null` on 401), `getSession() → Me|null`, `clearSession()`.
   - Router contract: a route is `{ render(data) → string, init(data) → void, load?: (params) → Promise<data>, title, roles: Array<'member'|'naqib'|'admin'|'public'> }`. `handleRoute()` is async: it ensures the session, redirects by role (public routes `login`, `daftar`; when logged out → `#login`; `mustChangePassword` → `#tukar-kata-laluan`; default route: admin → `admin`, naqib → `ringkasan`, member → `hari-ini`; a route not in the user's `roles` → that default), shows a skeleton (`<div class="skeleton">` blocks styled in `css/style.css` with a shimmer animation) while `load` runs, then `render(data)` + `init(data)`. If `load` throws, it shows an inline error card with a *"Cuba lagi"* button. A route token guards against stale renders when the hash changes mid-load. Hash params (`#daftar?kod=X`) are passed to `load` as `URLSearchParams`.

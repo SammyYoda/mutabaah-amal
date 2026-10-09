@@ -59,7 +59,7 @@ mutabaah-live/
 └── docs/specs/
 ```
 
-- **Dev:** Vite serves `web/` and proxies `/api` to Fastify (port 3001).
+- **Dev:** Vite serves `web/` and proxies `/api` to Fastify (port 3101).
 - **Production:** a single Node process serves the API and the static `web/` files.
 - **Config** via environment variables: `DATABASE_URL` (default `file:./data/mutabaah.db`), `PORT`, `SESSION_SECRET`, `APP_ORIGIN`.
 

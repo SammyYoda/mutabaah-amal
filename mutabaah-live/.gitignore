@@ -3,3 +3,4 @@ data/
 dist/
 test-results/
 !package-lock.json
+playwright-report/

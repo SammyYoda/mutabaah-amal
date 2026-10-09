@@ -9,11 +9,11 @@ export const TEST_PASSWORD = 'katalaluan123';
 const DEFAULT_NOW = '2026-10-09T02:00:00.000Z'; // 10:00 in Kuala Lumpur
 
 /** Fresh in-memory DB + app. Rate limiting is off unless `rateLimit: true`. Call app.close() if you need to. */
-export function makeTestApp(opts: { now?: string; rateLimit?: boolean } = {}) {
+export function makeTestApp(opts: { now?: string; rateLimit?: boolean; trustProxy?: boolean } = {}) {
   const db = openDb(':memory:');
   migrateDb(db);
   let current = new Date(opts.now ?? DEFAULT_NOW);
-  const app = buildApp({ db, now: () => new Date(current), appOrigin: TEST_ORIGIN, rateLimit: opts.rateLimit ?? false });
+  const app = buildApp({ db, now: () => new Date(current), appOrigin: TEST_ORIGIN, rateLimit: opts.rateLimit ?? false, trustProxy: opts.trustProxy });
   return {
     app,
     db,

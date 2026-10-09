@@ -8,7 +8,7 @@ const ERROR_SHAPE = {
   error: { code: expect.stringMatching(/^[A-Z_]+$/), message: expect.any(String) },
 };
 
-async function setup(opts: { rateLimit?: boolean } = {}) {
+async function setup(opts: { rateLimit?: boolean; trustProxy?: boolean } = {}) {
   const t = makeTestApp(opts);
   const usrahId = createTestUsrah(t.db);
   await createUser(t.db, { email: 'ahmad@usrah.my', name: 'Ahmad', usrahId, role: 'member' });
@@ -209,5 +209,28 @@ describe('static SPA serving (staticDir)', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('trustProxy and the login rate-limit key', () => {
+  const login = (app: Awaited<ReturnType<typeof setup>>['app'], xff: string) =>
+    app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      headers: { 'content-type': 'application/json', origin: ORIGIN, 'x-forwarded-for': xff },
+      payload: JSON.stringify({ email: 'ahmad@usrah.my', password: 'salah' }),
+    });
+
+  it('with trustProxy on, X-Forwarded-For decides the key (other clients are not limited)', async () => {
+    const { app } = await setup({ rateLimit: true, trustProxy: true });
+    for (let i = 0; i < 10; i++) expect((await login(app, '203.0.113.7')).statusCode).toBe(401);
+    expect((await login(app, '203.0.113.7')).statusCode).toBe(429);
+    expect((await login(app, '203.0.113.8')).statusCode).toBe(401);
+  });
+
+  it('with trustProxy off (default), X-Forwarded-For is ignored', async () => {
+    const { app } = await setup({ rateLimit: true });
+    for (let i = 0; i < 10; i++) expect((await login(app, `203.0.113.${i}`)).statusCode).toBe(401);
+    expect((await login(app, '203.0.113.99')).statusCode).toBe(429);
   });
 });

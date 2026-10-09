@@ -5,8 +5,9 @@ import { openDb, migrateDb, closeDb } from './db/client.js';
 import { buildApp } from './app.js';
 
 const DATABASE_URL = process.env.DATABASE_URL ?? 'file:./data/mutabaah.db';
-const PORT = Number(process.env.PORT ?? 3001);
+const PORT = Number(process.env.PORT ?? 3101);
 const APP_ORIGIN = process.env.APP_ORIGIN ?? 'http://localhost:3000';
+const TRUST_PROXY = ['1', 'true'].includes((process.env.TRUST_PROXY ?? '').toLowerCase());
 const HOST = process.env.HOST ?? '0.0.0.0';
 
 const webDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../dist/web');
@@ -15,7 +16,7 @@ const staticDir = process.env.NODE_ENV === 'production' && existsSync(webDir) ? 
 const db = openDb(DATABASE_URL);
 migrateDb(db);
 
-const app = buildApp({ db, appOrigin: APP_ORIGIN, staticDir, logger: true });
+const app = buildApp({ db, appOrigin: APP_ORIGIN, staticDir, logger: true, trustProxy: TRUST_PROXY });
 
 try {
   await app.listen({ port: PORT, host: HOST });

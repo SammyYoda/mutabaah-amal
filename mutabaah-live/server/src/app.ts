@@ -39,6 +39,8 @@ export type BuildAppOptions = {
   /** Absolute path of the built SPA (dist/web). When set, it is served with an index.html fallback. */
   staticDir?: string;
   logger?: boolean;
+  /** Trust X-Forwarded-For (behind a reverse proxy) so req.ip is the client IP. Default false. */
+  trustProxy?: boolean;
 };
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -48,7 +50,7 @@ function isJson(contentType: string | undefined): boolean {
 }
 
 export function buildApp(opts: BuildAppOptions): FastifyInstance {
-  const app = Fastify({ logger: opts.logger ?? false });
+  const app = Fastify({ logger: opts.logger ?? false, trustProxy: opts.trustProxy ?? false });
 
   app.decorate('db', opts.db);
   app.decorate('appOrigin', opts.appOrigin);
