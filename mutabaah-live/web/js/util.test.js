@@ -24,7 +24,7 @@ describe('escapeHtml', () => {
 
   it('leaves plain Malay text unchanged', () => {
     expect(escapeHtml("Usrah An-Nur — Mutaba'ah")).toBe('Usrah An-Nur — Mutaba&#39;ah');
-    expect(escapeHtml('Ahmad Faiz')).toBe('Ahmad Faiz');
+    expect(escapeHtml('Ali Ujian')).toBe('Ali Ujian');
   });
 
   it('is safe in an attribute position', () => {

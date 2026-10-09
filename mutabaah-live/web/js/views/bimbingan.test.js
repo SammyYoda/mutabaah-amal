@@ -20,7 +20,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 
-const me = (role) => setSession({ user: { id: role === 'naqib' ? 1 : 2, name: 'Pengguna', email: 'a@b.my', phone: null, isAdmin: false, mustChangePassword: false }, usrah: { id: 1, name: 'U', naqibName: 'Ustaz Hazwan' }, role });
+const me = (role) => setSession({ user: { id: role === 'naqib' ? 1 : 2, name: 'Pengguna', email: 'a@b.my', phone: null, isAdmin: false, mustChangePassword: false }, usrah: { id: 1, name: 'U', naqibName: 'Naqib Ujian' }, role });
 async function mount() {
   const data = await bimbinganRoute.load(new URLSearchParams());
   document.body.innerHTML = `<main id="app-main">${bimbinganRoute.render(data)}</main>`;

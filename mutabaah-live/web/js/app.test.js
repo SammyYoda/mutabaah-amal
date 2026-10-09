@@ -2,11 +2,11 @@ import { AppRouter, LEAVE_HOOK_TIMEOUT_MS } from './app.js';
 import { clearSession } from './session.js';
 
 const MEMBER = {
-  user: { id: 2, name: 'Ahmad Faiz', email: 'faiz@usrah.my', phone: null, isAdmin: false, mustChangePassword: false },
-  usrah: { id: 1, name: 'Usrah An-Nur', naqibName: 'Ustaz Hazwan' },
+  user: { id: 2, name: 'Ali Ujian', email: 'faiz@usrah.my', phone: null, isAdmin: false, mustChangePassword: false },
+  usrah: { id: 1, name: 'Usrah An-Nur', naqibName: 'Naqib Ujian' },
   role: 'member',
 };
-const NAQIB = { ...MEMBER, user: { ...MEMBER.user, id: 1, name: 'Ustaz Hazwan' }, role: 'naqib' };
+const NAQIB = { ...MEMBER, user: { ...MEMBER.user, id: 1, name: 'Naqib Ujian' }, role: 'naqib' };
 const ADMIN = {
   user: { id: 9, name: 'Pentadbir Utama', email: 'admin@usrah.my', phone: null, isAdmin: true, mustChangePassword: false },
   usrah: null,
@@ -129,12 +129,25 @@ describe('AppRouter role routing', () => {
     expect(route()).toBe('#login');
   });
 
-  it('placeholder routes render the "Sedang dinaik taraf" card', async () => {
-    mockApi(MEMBER);
+  it('no route is a "Sedang dinaik taraf" placeholder any more', async () => {
+    mockApi(MEMBER, {
+      '/api/me/analytics?weeks=8': json(200, { weekly: [], heatmap: [], byCategory: [], status: { percentage: 0, level: null, label: 'Baru' } }),
+    });
     history.replaceState(null, '', '#analitik');
     await new AppRouter().handleRoute();
-    expect(main().textContent).toContain('Sedang dinaik taraf');
+    expect(main().textContent).not.toContain('Sedang dinaik taraf');
+    expect(main().querySelector('[data-status-badge]').textContent.trim()).toBe('Baru');
   });
+
+  it('#profil-ahli?id= for an unknown member shows "Ahli tidak dijumpai" with a retry button', async () => {
+    mockApi(NAQIB, { '/api/usrah/matrix': json(200, { amalan: [], rows: [] }) });
+    history.replaceState(null, '', '#profil-ahli?id=999');
+    await new AppRouter().handleRoute();
+    expect(route()).toBe('#profil-ahli?id=999');
+    expect(main().textContent).toContain('Ahli tidak dijumpai');
+    expect(main().querySelector('[data-action="retry"]')).not.toBeNull();
+  });
+
 });
 
 describe('AppRouter load lifecycle', () => {
@@ -346,7 +359,7 @@ describe('AppRouter header', () => {
     expect(header().innerHTML).not.toContain('<script>');
     expect(header().textContent).toContain('Usrah An-Nur');
     expect(header().textContent).toContain('Ahli Usrah');
-    expect(header().textContent).toContain('Hanya anda & Naqib (Ustaz Hazwan)');
+    expect(header().textContent).toContain('Hanya anda & Naqib (Naqib Ujian)');
     expect(header().querySelector('#btnHeaderRoleToggle')).toBeNull();
   });
 

@@ -25,34 +25,16 @@ import { adminRoute } from './views/admin.js';
 import { hariIniRoute } from './views/hariIni.js';
 import { tetapanRoute } from './views/tetapan.js';
 import { bimbinganRoute } from './views/bimbingan.js';
+import { analitikRoute } from './views/analitik.js';
+import { ringkasanRoute } from './views/ringkasan.js';
+import { matriksRoute } from './views/matriks.js';
+import { profilAhliRoute, navigateToMember } from './views/profilAhli.js';
 
-const APP = "Mutaba'ah Amal";
 /** A route's leave hook (e.g. flushing a pending save) gets this long before navigation goes on anyway. */
 export const LEAVE_HOOK_TIMEOUT_MS = 5000;
 const SAVE_FAILED = 'Gagal disimpan — cuba lagi';
 const PUBLIC_ROUTES = new Set(['login', 'daftar']);
 const ROLE_LABELS = { naqib: 'Naqib Usrah', member: 'Ahli Usrah', admin: 'Pentadbir' };
-
-/**
- * Temporary route for a view not yet migrated to the API (Tasks 11–13 replace these).
- * @param {string} name page title @param {Array<string>} roles
- */
-function placeholderRoute(name, roles) {
-  return {
-    title: `${name} | ${APP}`,
-    roles,
-    load: async () => ({}),
-    render: () => `
-      <div class="view-container max-w-[1200px] mx-auto px-margin md:px-margin-desktop py-space-xl flex justify-center">
-        <div class="w-full max-w-md bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 p-space-xl text-center">
-          <span class="material-symbols-outlined text-4xl text-primary-container">construction</span>
-          <h1 class="font-bold text-xl text-on-surface mt-space-sm">${escapeHtml(name)}</h1>
-          <p class="text-sm text-on-surface-variant mt-1">Sedang dinaik taraf</p>
-        </div>
-      </div>`,
-    init: () => {},
-  };
-}
 
 /** Navigation entries per role: [route, label, mobile icon, mobile label]. */
 const NAV = {
@@ -77,13 +59,12 @@ export function defaultRoutes() {
     daftar: daftarRoute,
     'tukar-kata-laluan': tukarKataLaluanRoute,
     admin: adminRoute,
-    // Placeholders — replaced when each view is migrated (Tasks 11–13).
     'hari-ini': hariIniRoute,
-    analitik: placeholderRoute('Analitik', ['member']),
+    analitik: analitikRoute,
     bimbingan: bimbinganRoute,
-    ringkasan: placeholderRoute('Ringkasan Usrah', ['naqib']),
-    matriks: placeholderRoute('Matriks Amalan', ['naqib']),
-    'profil-ahli': placeholderRoute('Profil Ahli', ['naqib']),
+    ringkasan: ringkasanRoute,
+    matriks: matriksRoute,
+    'profil-ahli': profilAhliRoute,
     tetapan: tetapanRoute,
   };
 }
@@ -525,9 +506,10 @@ export function showToast(message, type = 'info') {
   }, 3200);
 }
 
-/** Boots the SPA: exposes window.router / window.showToast (demo views use them) and routes. */
+/** Boots the SPA: exposes window.router / window.showToast / window.navigateToMember and routes. */
 export function startApp() {
   window.showToast = showToast;
+  window.navigateToMember = navigateToMember;
   const router = new AppRouter();
   window.router = router;
   router.start();
