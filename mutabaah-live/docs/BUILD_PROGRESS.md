@@ -128,4 +128,7 @@ Task 8: review — spec ✅, quality Approved (opus); 7 minors
 Ruling R19: reviewer Minor 3 promoted to Important — it is plan Review Focus #2. (a) periodScore: TODAY's harian items count in expected only if already met (in-progress day, same rule as R6 in-progress periods); dailyScore (live ring) unchanged. (b) a member with expected = 0 over last4w gets status {percentage:0, level:null, label:'Baru'}, no level_c alert, and is excluded from avg4w/avgThisWeek means. Spec §8 updated. — otherwise every new member (and every member each morning) shows Level C; cost if wrong: today's unmet items don't drag scores until the day ends.
 Task 8: minor (deferred): no test that a member's other-usrah logs are ignored; R4 test doesn't assert loggedToday/avg4w after removal
 Task 8: minor (deferred): prayerPct can exceed 100 with multiple prayers amalan; dead lastLogDate computation in memberMetrics; .default(def as any) typing; /members/:id loads whole roster
-Task 8: fix round 1/5 dispatched (fix base 9be9d52; resumed implementer ab15b7c222f8d9c2f with R19)
+Task 8: fix round 1/5 dispatched (fix base 5053fa8; resumed implementer ab15b7c222f8d9c2f with R19)
+Task 8: fix round 1/5 (1 addressed, 0 open — R19 in-progress today + 'Baru' status; drop alert also needs thisWeek expected > 0; commits 5053fa8..d5b1a02)
+Task 8: minor (deferred): prayerAvg4w still includes Baru members as 0
+Task 8: complete (commits 76f359f..d5b1a02, 1 fix round)
