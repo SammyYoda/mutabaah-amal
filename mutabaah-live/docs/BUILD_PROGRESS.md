@@ -151,3 +151,7 @@ Ruling R26: Task 11 also hardens the router (Task 10 minors 1, 3, 5): own-proper
 Task 10: minor (deferred): shownHash can drift during back-nav while /auth/me pending; bell dropdown closes on header re-render; test gaps (logout clears session, login setSession, escaping of notification text / naqib name, removed naqib in /auth/me)
 Task 10: complete (commits 50f201a..480b7d3, review clean)
 Task 11: dispatched (base cbb189e, implementer agent a76b006cb9c4204b8, opus; carries R22, R26)
+Task 11: implementer DONE (80951be) — 255/255, build clean; deviations: load range to = min(today, max(week Sunday, month end)); router contract gains init-returned leave hook (awaited before next navigation); save queue split to web/js/views/hariIni/saveQueue.js
+Task 11: review dispatched (diff 2550dd3..80951be)
+Task 11: review — spec ✅ (deviations accepted: load range, saveQueue split, leave-hook contract), quality Needs fixes — Important: (1) logout bypasses leave hook → pending edits lost + spurious toast; (2) hung save blocks navigation forever (no timeout)
+Task 11: minor (deferred): edits made during leave flush dropped; LOG_LOCKED leaves optimistic values on screen; permanent 4xx (VALIDATION_ERROR) re-queued forever (queue poisoned); pill "Disimpan" while newer edits pending; test gaps (in-flight edit, date-strip leave flush via real router)
