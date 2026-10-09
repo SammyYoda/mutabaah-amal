@@ -171,3 +171,7 @@ Task 13: review dispatched (diff f5563a2..HEAD)
 Task 13: review — spec ❌ (R19 Baru missing in Matriks: red 0% + included in Level C filter, test locks it in), quality Needs fixes (opus); no XSS, temp-password handling and confirmations verified
 Ruling R29: reviewer Minor 2 (Baru members shown as "0%" in Profil Ahli KPI/donut/switcher and Analitik header) is folded into the R19 fix — R19 names the profile explicitly; show "—" instead. Minor 1 (pre-join weeks as 0%) stays deferred. — cost: none.
 Task 13: minor (deferred): pre-join weeks render as 0% in Profil Ahli/Analitik charts; admin hostile-string test vacuous; temp-password modal lacks initial focus; Matriks state module-level
+Task 13: fix round 1/5 dispatched (fix base b4826db; resumed implementer ab17c54eb8c118cf5)
+Task 13: fix round 1/5 (2 addressed, 0 open — Baru neutral in Matriks/Profil Ahli/Analitik; commits b4826db..f664a3b)
+Task 13: minor (deferred): Profil Ahli "Skor Minggu Ini" shows 0% for new member; Baru signalled by empty cells (matrix) vs level null (status) — separate signals
+Task 13: complete (commits c60cc4a..f664a3b, 1 fix round)
