@@ -54,3 +54,11 @@ Task 1: minor (deferred): dates.test.js lacks leap-day addDays, weekStart Mon/Su
 Task 1: minor (deferred): tsconfig lacks `types: ["vitest/globals"]` — test type-check may complain later
 Task 1: minor (deferred): dates.js has no input validation (malformed date → NaN); API layer validates
 Task 1: complete (commits b9b5808..783a06e, review clean)
+Task 2: dispatched (base 855c640, implementer agent a444ff9292267feb9, sonnet)
+Task 2: implementer DONE (9963d7b); review dispatched
+Task 2: review — spec ✅, quality Approved; 1 Important (plan-mandated): partial edge week/month at window start is aggregated over the stub only yet counted as expected → weekly items nearly always "missed" in rolling 4-week windows
+Ruling R6: mingguan/bulanan periods are judged WHOLE — values aggregate over the full ISO week / calendar month clipped only by joinedOn and today (not by from/to); a period counts in expected unconditionally only if it is completed (does not contain today) AND starts on/after joinedOn; otherwise it counts only if already met. Activity = active on the last day of the period clipped to [joinedOn, today]. Spec §8 updated to match. — the rolling-window stub penalty would skew every dashboard; cost if wrong: period scores for weekly/monthly items differ slightly from a strictly-clipped reading of §8.
+Task 2: minor (deferred → carried to Task 3): prayers item with null targetVal is always met — schema must default prayers target_val to 5 / NOT NULL
+Task 2: minor (deferred): weekly prayers aggregation = days with ≥targetVal prayers compared against same targetVal (plan-mandated ambiguity)
+Task 2: minor (deferred): count values not validated in score.js (API validates, Task 6)
+Task 2: minor (deferred): test gaps — mingguan deactivated mid-week, completed unmet month, week spanning month boundary; weekStart(d) computed twice at score.js:101
