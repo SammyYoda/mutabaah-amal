@@ -117,6 +117,15 @@ export async function authRoutes(app: FastifyInstance) {
     const code = body.inviteCode?.trim().toUpperCase();
     const tokenHash = body.naqibInvite ? hashToken(body.naqibInvite) : undefined;
 
+    // Rejoin (R13): an existing non-admin user with no active membership may re-enter with their own password.
+    // Verified before the (synchronous) transaction; any other failure looks like a plain duplicate email.
+    const prior = app.db.select().from(users).where(eq(users.email, email)).get();
+    const mayRejoin =
+      !!prior &&
+      !prior.isAdmin &&
+      !getActiveMembership(app.db, prior.id) &&
+      (await verifyPassword(prior.passwordHash, body.password));
+
     const userId = app.db.transaction((tx) => {
       let usrahId: number;
       let role: 'naqib' | 'member';
@@ -135,14 +144,26 @@ export async function authRoutes(app: FastifyInstance) {
         role = 'naqib';
         inviteId = inv.id;
       }
-      if (tx.select({ id: users.id }).from(users).where(eq(users.email, email)).get()) {
-        throw new AppError(409, 'CONFLICT', DUPLICATE_EMAIL, { email: DUPLICATE_EMAIL });
+      const dup = tx.select({ id: users.id }).from(users).where(eq(users.email, email)).get();
+      let id: number;
+      if (dup) {
+        // re-check inside the transaction: still the same user, still without an active membership
+        const stillFree = !tx
+          .select({ id: memberships.id })
+          .from(memberships)
+          .where(and(eq(memberships.userId, dup.id), isNull(memberships.removedAt)))
+          .get();
+        if (!mayRejoin || dup.id !== prior!.id || !stillFree) {
+          throw new AppError(409, 'CONFLICT', DUPLICATE_EMAIL, { email: DUPLICATE_EMAIL });
+        }
+        id = dup.id; // name/phone deliberately not updated
+      } else {
+        id = tx
+          .insert(users)
+          .values({ email, name: body.name, phone: body.phone || null, passwordHash, createdAt: now })
+          .returning()
+          .get().id;
       }
-      const id = tx
-        .insert(users)
-        .values({ email, name: body.name, phone: body.phone || null, passwordHash, createdAt: now })
-        .returning()
-        .get().id;
       tx.insert(memberships).values({ userId: id, usrahId, role, joinedAt: now }).run();
       if (inviteId !== undefined) tx.update(naqibInvites).set({ usedAt: now }).where(eq(naqibInvites.id, inviteId)).run();
       if (role === 'member') {
@@ -152,7 +173,7 @@ export async function authRoutes(app: FastifyInstance) {
           .where(and(eq(memberships.usrahId, usrahId), eq(memberships.role, 'naqib'), isNull(memberships.removedAt)))
           .all();
         for (const n of naqibs) {
-          notify(tx as unknown as Db, n.userId, 'member_joined', `Ahli baru: ${body.name} telah menyertai usrah`, '#ringkasan', now);
+          notify(tx as unknown as Db, n.userId, 'member_joined', `Ahli baru: ${prior && mayRejoin ? prior.name : body.name} telah menyertai usrah`, '#ringkasan', now);
         }
       }
       return id;
