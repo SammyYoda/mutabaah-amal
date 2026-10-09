@@ -65,3 +65,9 @@ Task 2: minor (deferred): test gaps — mingguan deactivated mid-week, completed
 Task 2: fix round 1/5 dispatched (fix base 61bf33f; resumed implementer a444ff9292267feb9 with R6)
 Task 2: fix round 1/5 (1 addressed, 0 open — R6 whole-period judging; commits 61bf33f..b2a3c64)
 Task 2: complete (commits 855c640..b2a3c64, review clean)
+Task 3: dispatched (base ec8910a, implementer agent a081c3947324afd59, sonnet; prayers target NOT NULL carried from T2)
+Task 3: implementer DONE (0ea4403); review dispatched
+Task 3: review — spec ✅, quality Approved
+Task 3: minor (deferred): no lookup indexes on FKs (memberships.usrah_id, amalan.usrah_id, daily_logs.usrah_id, guidance.usrah_id, notifications.user_id, guidance_replies.guidance_id)
+Task 3: minor (deferred): openDb handles only `file:` prefix (no file:// or query string); NewAmalan/Amalan types live in client.ts; no tests for parent-dir creation / session cascade / cwd-independent migrations
+Task 3: complete (commits ec8910a..0ea4403, review clean)
