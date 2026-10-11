@@ -234,14 +234,12 @@ describe('GET /api/me/analytics', () => {
     expect(j.weekly.length).toBe(8);
     expect(j.heatmap[59].date).toBe(TODAY);
     expect(j.heatmap[0].date).toBe(addDays(TODAY, -59));
-    expect(j.heatmap[0].percentage).toBe(0); // before joinedOn
+    expect(j.heatmap[0].percentage).toBeNull(); // before joinedOn: no data, not 0%
     // Ali's today (odd day 9): prayers only; harian active today: P, C -> 50
     expect(j.heatmap[59].percentage).toBe(dailyScore(s.items, logsOf(s, s.ali).find((l) => l.date === TODAY)!, TODAY).percentage);
     expect(j.heatmap[59].percentage).toBe(50);
-    expect(j.weekly[7]).toEqual({
-      week: '2026-W41', start: '2026-10-05',
-      percentage: periodScore(s.items, logsOf(s, s.ali), { from: '2026-10-05', to: TODAY, today: TODAY, joinedOn: '2026-09-01' }).percentage,
-    });
+    const w41 = periodScore(s.items, logsOf(s, s.ali), { from: '2026-10-05', to: TODAY, today: TODAY, joinedOn: '2026-09-01' });
+    expect(j.weekly[7]).toEqual({ week: '2026-W41', start: '2026-10-05', percentage: w41.percentage, expected: w41.expected });
     expect(j.weekly[0].start).toBe(addDays(weekStart(TODAY), -49));
     expect(j.byCategory.map((x: any) => x.name)).toEqual(['Solat', 'Doa', 'Sedekah']);
     const p = j.byCategory[0];
@@ -261,6 +259,18 @@ describe('GET /api/me/analytics', () => {
 });
 
 describe('GET /api/members/:id', () => {
+  it('weeks and heatmap days before the member joined carry no score (expected 0 / null), not 0%', async () => {
+    const s = await setup();
+    const j = (await api(s.app, s.a.naqib.cookie).get(`/api/members/${s.siti}`)).json(); // joined 2026-10-08
+    expect(j.weekly.slice(0, 7).map((w: any) => w.expected)).toEqual([0, 0, 0, 0, 0, 0, 0]);
+    expect(j.weekly[7].expected).toBeGreaterThan(0);
+    const mine = (await api(s.app, s.sitiCookie).get('/api/me/analytics')).json();
+    expect(mine.heatmap.filter((d: any) => d.percentage === null).map((d: any) => d.date)).toEqual(
+      mine.heatmap.filter((d: any) => d.date < '2026-10-08').map((d: any) => d.date),
+    );
+    expect(mine.heatmap.at(-1).percentage).toBe(100);
+  });
+
   it('returns profile, status, weekly(8), recentLogs(14)', async () => {
     const s = await setup();
     const r = await api(s.app, s.a.naqib.cookie).get(`/api/members/${s.siti}`);

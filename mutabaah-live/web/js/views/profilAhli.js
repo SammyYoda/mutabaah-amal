@@ -77,11 +77,15 @@ function pickerHtml(roster) {
 
 // ---------- profile ----------
 
+/** A week with nothing expected (before joining, or no amalan yet) has no score — not 0%. */
+const hasData = (w) => w.expected !== 0;
+
 function trendChartHtml(weekly) {
-  if (!weekly.length) return '<p class="text-sm text-on-surface-variant py-space-lg text-center">Belum ada data mingguan.</p>';
-  const pts = linePoints(weekly.map((w) => w.percentage), TREND);
+  if (!weekly.some(hasData)) return '<p class="text-sm text-on-surface-variant py-space-lg text-center">Belum ada data mingguan.</p>';
+  const all = linePoints(weekly.map((w) => w.percentage), TREND); // every week keeps its x slot and axis label
+  const pts = all.map((p, i) => ({ ...p, i })).filter((p) => hasData(weekly[p.i]));
   const target = yFor(80, TREND);
-  const lastIdx = pts.length - 1;
+  const lastIdx = all.length - 1;
   const baseY = TREND.height - TREND.bottom;
   return `
     <svg class="w-full h-auto overflow-visible" viewBox="0 0 ${TREND.width} ${TREND.height}" role="img" aria-label="Graf trend skor ${weekly.length} minggu">
@@ -98,7 +102,7 @@ function trendChartHtml(weekly) {
       <path d="${linePath(pts)}" fill="none" stroke="#007a87" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" data-trend-line></path>
       ${pts
         .map(
-          (p, i) => `
+          ({ i, ...p }) => `
         <circle cx="${p.x}" cy="${p.y}" ${i === lastIdx ? 'fill="#EA580C" r="5" stroke="#ffffff" stroke-width="2"' : 'fill="#007a87" r="4"'} data-trend-point>
           <title>${escapeHtml(weekLabel(weekly[i].week))}: ${p.value}%</title>
         </circle>
@@ -106,7 +110,7 @@ function trendChartHtml(weekly) {
         )
         .join('')}
       <g data-trend-labels>
-        ${pts
+        ${all
           .map(
             (p, i) =>
               `<text class="text-[10px] ${i === lastIdx ? 'font-bold' : ''}" fill="${i === lastIdx ? '#007a87' : '#3e494a'}" text-anchor="middle" x="${p.x}" y="${TREND.height - 8}">${escapeHtml(weekLabel(weekly[i].week))}${i === lastIdx ? ' (Kini)' : ''}</text>`,
@@ -184,7 +188,8 @@ function guidanceItemHtml(item) {
 function profileHtml(data) {
   const { member, status, weekly, recentLogs, guidance, matrix } = data;
   const usrahName = getSession()?.usrah?.name ?? '';
-  const thisWeek = weekly.length ? weekly[weekly.length - 1].percentage : 0;
+  const current = weekly.length ? weekly[weekly.length - 1] : null;
+  const thisWeekText = current && hasData(current) ? `${escapeHtml(current.percentage)}%` : '—';
   const statusPct = clampPct(status.percentage);
   const baru = status.level == null; // R19: nothing expected yet → no failing 0%
   const statusText = baru ? '—' : `${escapeHtml(status.percentage)}%`;
@@ -267,7 +272,7 @@ function profileHtml(data) {
             <div>
               <span class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-1">Skor Minggu Ini</span>
               <div class="flex items-baseline gap-1">
-                <span class="text-3xl font-bold text-on-surface" data-kpi="thisWeek">${escapeHtml(thisWeek)}%</span>
+                <span class="text-3xl font-bold text-on-surface" data-kpi="thisWeek">${thisWeekText}</span>
               </div>
               <span class="text-xs text-on-surface-variant mt-1 block">Minggu semasa (Isnin–hari ini)</span>
             </div>

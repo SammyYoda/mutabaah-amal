@@ -42,8 +42,14 @@ function weeklyChartHtml(weekly) {
       ${grid}
       <line stroke="#EA580C" stroke-dasharray="4,4" stroke-width="2" x1="${x1}" x2="${x2}" y1="${target}" y2="${target}"></line>
       ${bars
-        .map(
-          (b, i) => `
+        .map((b, i) =>
+          weekly[i].expected === 0
+            ? `
+        <g data-week-empty>
+          <text class="fill-on-surface-variant text-[11px]" text-anchor="middle" x="${b.cx}" y="${baseline(BARS) - 6}">—<title>Minggu bermula ${escapeHtml(fmtDate(weekly[i].start))}: tiada amalan dijangka</title></text>
+          <text class="fill-on-surface-variant text-[11px]" text-anchor="middle" x="${b.cx}" y="${baseline(BARS) + 18}">${escapeHtml(weekLabel(weekly[i].week))}${i === last ? ' (Kini)' : ''}</text>
+        </g>`
+            : `
         <g class="group">
           <rect class="${barClass(b.value, i === last)} transition-opacity group-hover:opacity-85" height="${b.h}" rx="4" width="${b.w}" x="${b.x}" y="${b.y}" data-week-bar data-pct="${escapeHtml(weekly[i].percentage)}">
             <title>Minggu bermula ${escapeHtml(fmtDate(weekly[i].start))}: ${b.value}%</title>
@@ -62,7 +68,7 @@ function heatmapHtml(heatmap) {
   return heatmap
     .map(
       (d, i) =>
-        `<div class="w-5 h-5 rounded-sm ${heatClass(d.percentage)} ${i === last ? 'ring-2 ring-orange-vibrant' : ''}" title="${escapeHtml(fmtDate(d.date))}${i === last ? ' (Hari Ini)' : ''}: ${clampPct(d.percentage)}%" data-heat></div>`,
+        `<div class="w-5 h-5 rounded-sm ${heatClass(d.percentage)} ${i === last ? 'ring-2 ring-orange-vibrant' : ''}" title="${escapeHtml(fmtDate(d.date))}${i === last ? ' (Hari Ini)' : ''}: ${d.percentage === null ? 'Belum menyertai' : `${clampPct(d.percentage)}%`}" data-heat></div>`,
     )
     .join('');
 }

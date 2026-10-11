@@ -41,24 +41,25 @@ export function statusOf(ctx: MemberCtx) {
   return { percentage: r.percentage, ...statusBand(r.percentage) };
 }
 
-/** N weekly points, oldest first; the current week is clipped to today. */
+/** N weekly points, oldest first; the current week is clipped to today. expected 0 = no data yet (e.g. before joining). */
 export function weeklySeries(ctx: MemberCtx, n: number) {
   const ws = weekStart(ctx.today);
-  const out: { week: string; start: string; percentage: number }[] = [];
+  const out: { week: string; start: string; percentage: number; expected: number }[] = [];
   for (let k = n - 1; k >= 0; k--) {
     const start = addDays(ws, -7 * k);
     const end = addDays(start, 6) < ctx.today ? addDays(start, 6) : ctx.today;
-    out.push({ week: isoWeekKey(start), start, percentage: scoreOver(ctx, start, end).percentage });
+    const r = scoreOver(ctx, start, end);
+    out.push({ week: isoWeekKey(start), start, percentage: r.percentage, expected: r.expected });
   }
   return out;
 }
 
-/** 60 KL days ending today, oldest first. */
+/** 60 KL days ending today, oldest first; days before joining have percentage null. */
 export function heatmap(ctx: MemberCtx, days = 60) {
   const byDate = new Map(ctx.logs.map((l) => [l.date, l]));
   return dateRange(addDays(ctx.today, -(days - 1)), ctx.today).map((date) => ({
     date,
-    percentage: date < ctx.joinedOn ? 0 : dailyScore(ctx.amalan, byDate.get(date) ?? null, date).percentage,
+    percentage: date < ctx.joinedOn ? null : dailyScore(ctx.amalan, byDate.get(date) ?? null, date).percentage,
   }));
 }
 

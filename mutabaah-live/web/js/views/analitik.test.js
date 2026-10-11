@@ -57,6 +57,28 @@ describe('Analitik view', () => {
     expect($$('[data-week-label]').map((t) => t.textContent.trim())).toContain('42%');
   });
 
+  it('weeks with nothing expected (before joining) get no bar and a neutral "—", not 0%', async () => {
+    const weekly = ANALYTICS.weekly.map((w, i) => (i < 2 ? { ...w, percentage: 0, expected: 0 } : { ...w, expected: 10 }));
+    getMyAnalytics.mockResolvedValue({ ...ANALYTICS, weekly });
+    await mount();
+    expect($$('[data-week-bar]')).toHaveLength(6);
+    const empty = $$('[data-week-empty]');
+    expect(empty).toHaveLength(2);
+    expect(empty[0].textContent).toContain('—');
+    expect($$('[data-week-label]').map((t) => t.textContent.trim())).not.toContain('0%');
+    expect($('[data-weekly-chart]').textContent).toContain('M34'); // the axis still shows every week
+  });
+
+  it('heatmap days before joining (percentage null) say so instead of 0%', async () => {
+    const heatmap = ANALYTICS.heatmap.map((d, i) => (i < 3 ? { ...d, percentage: null } : d));
+    getMyAnalytics.mockResolvedValue({ ...ANALYTICS, heatmap });
+    await mount();
+    const cells = $$('[data-heat]');
+    expect(cells[0].getAttribute('title')).toContain('Belum menyertai');
+    expect(cells[0].getAttribute('title')).not.toContain('0%');
+    expect(cells[3].getAttribute('title')).toContain('0%');
+  });
+
   it('60-day heatmap coloured by bands', async () => {
     await mount();
     const cells = $$('[data-heat]');

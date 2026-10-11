@@ -100,6 +100,30 @@ describe('Profil Ahli view', () => {
     expect($('[data-trend-labels]').textContent).toContain('M41');
   });
 
+  it('trend line starts at the first week with something expected; earlier weeks keep only their axis label', async () => {
+    const weekly = MEMBER.weekly.map((w, i) => (i < 3 ? { ...w, percentage: 0, expected: 0 } : { ...w, expected: 12 }));
+    getMember.mockResolvedValue({ ...MEMBER, weekly });
+    await mount();
+    expect($$('[data-trend-point]')).toHaveLength(5);
+    expect($('[data-trend-line]').getAttribute('d')).toMatch(/^M [\d.]+,[\d.]+( L [\d.]+,[\d.]+){4}$/);
+    expect($('[data-trend-labels]').textContent).toContain('M34');
+    expect($('svg').outerHTML).not.toMatch(/NaN|Infinity/);
+  });
+
+  it('Skor Minggu Ini shows "—" when nothing is expected this week yet', async () => {
+    const weekly = MEMBER.weekly.map((w, i) => (i === 7 ? { ...w, percentage: 0, expected: 0 } : { ...w, expected: 12 }));
+    getMember.mockResolvedValue({ ...MEMBER, weekly });
+    await mount();
+    expect($('[data-kpi="thisWeek"]').textContent.trim()).toBe('—');
+  });
+
+  it('no week with data at all → empty-state text instead of a chart', async () => {
+    getMember.mockResolvedValue({ ...MEMBER, weekly: MEMBER.weekly.map((w) => ({ ...w, percentage: 0, expected: 0 })) });
+    await mount();
+    expect($('[data-trend-line]')).toBeNull();
+    expect(document.body.textContent).toContain('Belum ada data mingguan.');
+  });
+
   it('single-point weekly renders without NaN', async () => {
     getMember.mockResolvedValue({ ...MEMBER, weekly: [{ week: '2026-W41', start: '2026-10-05', percentage: 100 }] });
     await mount();
