@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { and, eq, isNull, ne } from 'drizzle-orm';
+import { and, eq, isNull, lte, ne } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import { memberships, sessions, users } from '../db/schema.js';
 
@@ -26,9 +26,10 @@ export function hashToken(rawToken: string): string {
   return createHash('sha256').update(rawToken).digest('hex');
 }
 
-/** Creates a session row and returns the raw token (only its SHA-256 hash is stored). */
+/** Creates a session row and returns the raw token (only its SHA-256 hash is stored). Sweeps expired sessions. */
 export function createSession(db: Db, userId: number, now: Date): string {
   const raw = randomBytes(32).toString('base64url');
+  db.delete(sessions).where(lte(sessions.expiresAt, now)).run();
   db.insert(sessions)
     .values({
       userId,

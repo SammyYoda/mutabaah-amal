@@ -167,14 +167,15 @@ export async function amalanRoutes(app: FastifyInstance) {
       set.deactivatedOn = todayKL(app.now());
     }
     if (Object.keys(set).length === 0) return serializeAmalan(existing);
-    return serializeAmalan(app.db.update(amalan).set(set).where(eq(amalan.id, existing.id)).returning().get());
+    return serializeAmalan(app.db.update(amalan).set(set).where(and(eq(amalan.id, existing.id), eq(amalan.usrahId, usrahId))).returning().get());
   });
 
   app.delete('/amalan/:id', { preHandler: requireNaqib }, async (req) => {
-    const existing = findOwn(app, usrahIdOf(req), (req.params as { id: string }).id);
+    const usrahId = usrahIdOf(req);
+    const existing = findOwn(app, usrahId, (req.params as { id: string }).id);
     if (!existing.active) return serializeAmalan(existing);
     return serializeAmalan(
-      app.db.update(amalan).set({ active: false, deactivatedOn: todayKL(app.now()) }).where(eq(amalan.id, existing.id)).returning().get(),
+      app.db.update(amalan).set({ active: false, deactivatedOn: todayKL(app.now()) }).where(and(eq(amalan.id, existing.id), eq(amalan.usrahId, usrahId))).returning().get(),
     );
   });
 }

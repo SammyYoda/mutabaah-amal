@@ -53,11 +53,25 @@ function isJson(contentType: string | undefined): boolean {
   return (contentType ?? '').split(';')[0].trim().toLowerCase() === 'application/json';
 }
 
+/** 'https://x.org/' or 'HTTPS://X.ORG' → 'https://x.org', the form browsers send in the Origin header. */
+function normaliseOrigin(raw: string): string {
+  let origin = 'null';
+  try {
+    origin = new URL(raw).origin;
+  } catch {
+    // reported below
+  }
+  // 'localhost:3000' parses with scheme 'localhost:' and origin 'null'
+  if (origin === 'null') throw new Error(`APP_ORIGIN must be an http(s) URL such as https://mutabaah.example.org, got: ${raw}`);
+  return origin;
+}
+
 export function buildApp(opts: BuildAppOptions): FastifyInstance {
+  const appOrigin = normaliseOrigin(opts.appOrigin);
   const app = Fastify({ logger: opts.logger ?? false, trustProxy: fastifyTrustProxy(opts.trustProxy) });
 
   app.decorate('db', opts.db);
-  app.decorate('appOrigin', opts.appOrigin);
+  app.decorate('appOrigin', appOrigin);
   app.decorate('now', opts.now ?? (() => new Date()));
   app.decorateRequest('user', null as unknown as User);
   app.decorateRequest('membership', null);
@@ -78,7 +92,7 @@ export function buildApp(opts: BuildAppOptions): FastifyInstance {
   // and no mutating routes exist outside /api (static files and the SPA fallback are GET-only).
   app.addHook('onRequest', async (req) => {
     if (!MUTATING.has(req.method)) return;
-    if (!isJson(req.headers['content-type']) || req.headers.origin !== opts.appOrigin) {
+    if (!isJson(req.headers['content-type']) || req.headers.origin !== appOrigin) {
       throw new AppError(403, 'FORBIDDEN', MESSAGES.FORBIDDEN);
     }
   });

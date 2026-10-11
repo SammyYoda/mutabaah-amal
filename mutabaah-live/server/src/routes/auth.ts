@@ -31,6 +31,8 @@ const BAD_CODE = 'Kod jemputan tidak sah';
 const DUPLICATE_EMAIL = 'Emel sudah didaftarkan';
 
 export const LOGIN_RATE_LIMIT = { max: 10, timeWindow: '15 minutes' };
+/** Per session (keyed on the sid hash), so a hijacked session can't brute-force the current password. */
+export const CHANGE_PASSWORD_RATE_LIMIT = { max: 10, timeWindow: '15 minutes' };
 /** IP-independent cap per normalised email (R30): a spoofed or rotating client IP can't buy more guesses. */
 export const LOGIN_EMAIL_RATE_LIMIT = { max: 20, timeWindow: '1 hour' };
 /** Replaces the per-email cap for a login from a trusted device of that account (lockout resistance). */
@@ -239,16 +241,28 @@ export async function authRoutes(app: FastifyInstance) {
 
   app.get('/me', { preHandler: requireUser }, async (req) => mePayload(app.db, req.user, req.membership));
 
-  app.post('/change-password', { preHandler: requireUser }, async (req) => {
-    const body = ChangePasswordBody.parse(req.body);
-    if (!(await verifyPassword(req.user.passwordHash, body.currentPassword))) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Kata laluan semasa salah', {
-        currentPassword: 'Kata laluan semasa salah',
-      });
-    }
-    const passwordHash = await hashPassword(body.newPassword);
-    app.db.update(users).set({ passwordHash, mustChangePassword: false }).where(eq(users.id, req.user.id)).run();
-    revokeUserSessions(app.db, req.user.id, req.cookies[SESSION_COOKIE]);
-    return { ok: true };
-  });
+  app.post(
+    '/change-password',
+    {
+      preHandler: requireUser,
+      config: {
+        rateLimit: {
+          ...CHANGE_PASSWORD_RATE_LIMIT,
+          keyGenerator: (req) => `sid|${hashToken(req.cookies[SESSION_COOKIE] ?? '')}`,
+        },
+      },
+    },
+    async (req) => {
+      const body = ChangePasswordBody.parse(req.body);
+      if (!(await verifyPassword(req.user.passwordHash, body.currentPassword))) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Kata laluan semasa salah', {
+          currentPassword: 'Kata laluan semasa salah',
+        });
+      }
+      const passwordHash = await hashPassword(body.newPassword);
+      app.db.update(users).set({ passwordHash, mustChangePassword: false }).where(eq(users.id, req.user.id)).run();
+      revokeUserSessions(app.db, req.user.id, req.cookies[SESSION_COOKIE]);
+      return { ok: true };
+    },
+  );
 }

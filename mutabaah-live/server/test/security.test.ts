@@ -341,3 +341,40 @@ describe('trusted device cookie (per-email lockout resistance)', () => {
     expect((await login(app, '203.0.113.200', { password: 'katalaluan123', cookie: did })).statusCode).toBe(429);
   });
 });
+
+describe('change-password rate limit', () => {
+  it('returns 429 on the 11th attempt within 15 minutes for the same session', async () => {
+    const { app } = await setup({ rateLimit: true });
+    const cookie = await loginAs(app, 'ahmad@usrah.my');
+    for (let i = 0; i < 10; i++) {
+      const r = await api(app, cookie).post('/api/auth/change-password', { currentPassword: 'salah-' + i, newPassword: 'barubaru123' });
+      expect(r.statusCode).toBe(400);
+    }
+    const res = await api(app, cookie).post('/api/auth/change-password', { currentPassword: 'katalaluan123', newPassword: 'barubaru123' });
+    expect(res.statusCode).toBe(429);
+    expect(res.json()).toEqual({ error: { code: 'RATE_LIMITED', message: expect.any(String) } });
+  });
+});
+
+describe('APP_ORIGIN normalisation', () => {
+  it.each(['http://localhost:3000/', 'HTTP://LOCALHOST:3000', 'http://localhost:3000/ahli'])(
+    'appOrigin %s still accepts requests from http://localhost:3000',
+    async (appOrigin) => {
+      const { buildApp } = await import('../src/app.js');
+      const { openDb, migrateDb } = await import('../src/db/client.js');
+      const db = openDb(':memory:');
+      migrateDb(db);
+      await createUser(db, { email: 'ahmad@usrah.my', name: 'Ahmad', usrahId: createTestUsrah(db) });
+      const app = buildApp({ db, appOrigin, rateLimit: false });
+      const res = await app.inject({ method: 'POST', url: '/api/auth/login', headers: { 'content-type': 'application/json', origin: ORIGIN }, payload: body });
+      expect(res.statusCode).toBe(200);
+      await app.close();
+    },
+  );
+
+  it('an invalid appOrigin fails at startup', async () => {
+    const { buildApp } = await import('../src/app.js');
+    const { openDb } = await import('../src/db/client.js');
+    expect(() => buildApp({ db: openDb(':memory:'), appOrigin: 'localhost:3000x', rateLimit: false })).toThrow(/APP_ORIGIN/);
+  });
+});

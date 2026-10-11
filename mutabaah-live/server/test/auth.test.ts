@@ -165,6 +165,17 @@ describe('logout and expiry', () => {
     setNow('2026-11-20T02:00:00.000Z'); // past original expiry, within extended one
     expect((await api(app, cookie).get('/api/auth/me')).statusCode).toBe(200);
   });
+
+  it('creating a session sweeps every expired session, not only the one looked up', async () => {
+    const { app, db, setNow } = await setup();
+    await createUser(db, { email: 'lain@usrah.my', name: 'Lain', usrahId: createTestUsrah(db) });
+    await loginAs(app, 'ahmad@usrah.my'); // never used again, expires 2026-11-08
+    setNow('2026-11-10T02:00:00.000Z');
+    await loginAs(app, 'lain@usrah.my');
+    const rows = db.select().from(sessions).all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].expiresAt.toISOString()).toBe('2026-12-10T02:00:00.000Z');
+  });
 });
 
 describe('POST /api/auth/change-password', () => {
