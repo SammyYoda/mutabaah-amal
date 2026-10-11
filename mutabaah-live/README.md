@@ -51,6 +51,18 @@ Operating notes:
 - Back up daily with cron: `0 3 * * * cd /path/to/mutabaah-live && npm run backup`. Backups go to `data/backups/mutabaah-YYYYMMDD-HHmm.db` (Kuala Lumpur time); the newest 14 are kept.
 - Moving to MySQL is a future step (see spec section 11).
 
+### Running as a service (systemd + Cloudflare Tunnel)
+
+`deploy/` holds the files used on the production host (Cloudflare Tunnel → `http://localhost:3101`):
+
+- `deploy/mutabaah-live.service`: systemd unit (binds `127.0.0.1:3101`, `TRUST_PROXY=127.0.0.1`,
+  restarts on failure). Edit `User`, `WorkingDirectory`, the node path and `APP_ORIGIN` for another host,
+  run `npm run build`, then
+  `sudo cp deploy/mutabaah-live.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now mutabaah-live`.
+  Logs: `journalctl -u mutabaah-live -f`.
+- `deploy/backup.sh`: cron wrapper for the backup (absolute node path, so it works without nvm), e.g.
+  `15 3 * * * /path/to/mutabaah-live/deploy/backup.sh >> /path/to/mutabaah-live/data/backups/backup.log 2>&1`.
+
 ## Account flow
 
 1. The admin runs `npm run create-admin`, logs in and creates a usrah (it gets a member invite code such as `ABC-2345`).
