@@ -6,7 +6,7 @@ Stack: Fastify + SQLite (Drizzle) API, vanilla-JS single-page app built with Vit
 
 ## Requirements
 
-- Node.js >= 20
+- Node.js >= 22 (better-sqlite3 13 and concurrently 10 require it; on Node 20 better-sqlite3 segfaults on open). Production runs Node 24.
 
 ## Setup (development)
 

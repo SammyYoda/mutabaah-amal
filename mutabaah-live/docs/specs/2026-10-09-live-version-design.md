@@ -23,7 +23,7 @@ Turn the localStorage demo into a real multi-user web app that many usrah groups
 | Topic | Decision |
 |---|---|
 | Tenancy | Many usrah groups; one usrah per user |
-| Backend | Own Node 20 API (Fastify, TypeScript) |
+| Backend | Own Node API (Node ≥ 22; production on 24) (Fastify, TypeScript) |
 | Database | SQLite (WAL mode) via Drizzle ORM; MySQL kept as a config-level switch |
 | Hosting | Undecided; target any host with a persistent disk (VPS, Fly.io/Railway volume) |
 | Frontend | Keep the vanilla JS SPA; replace `store.js` with an API client |
