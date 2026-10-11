@@ -15,6 +15,13 @@
       "when": 1791698879669,
       "tag": "0001_pale_bromley",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791699350399,
+      "tag": "0002_jittery_leader",
+      "breakpoints": true
     }
   ]
 }

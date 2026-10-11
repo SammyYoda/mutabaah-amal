@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { openDb, migrateDb, type Db } from '../src/db/client.js';
 import { users, usrah, memberships, dailyLogs } from '../src/db/schema.js';
 import { DEFAULT_AMALAN } from '../src/db/defaultAmalan.js';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 let db: Db;
 const now = new Date('2026-10-09T00:00:00Z');
@@ -46,5 +46,23 @@ describe('DEFAULT_AMALAN', () => {
     expect(DEFAULT_AMALAN.filter((a) => a.inputType === 'prayers')).toHaveLength(1);
     expect(DEFAULT_AMALAN.find((a) => a.inputType === 'prayers')!.targetVal).toBe(5);
     expect(DEFAULT_AMALAN.map((a) => a.sort)).toEqual([...Array(17).keys()]);
+  });
+});
+
+describe('lookup indexes', () => {
+  // Hot per-usrah / per-user lookups must not full-scan the table as data grows.
+  it.each([
+    'SELECT * FROM memberships WHERE usrah_id = 1',
+    'SELECT * FROM amalan WHERE usrah_id = 1',
+    "SELECT * FROM daily_logs WHERE usrah_id = 1 AND date >= '2026-09-01' AND date <= '2026-10-09'",
+    'SELECT * FROM guidance WHERE usrah_id = 1',
+    'SELECT * FROM guidance_replies WHERE guidance_id IN (1, 2)',
+    'SELECT * FROM notifications WHERE user_id = 1',
+    'SELECT * FROM sessions WHERE user_id = 1',
+    'DELETE FROM sessions WHERE expires_at <= 1',
+    'SELECT * FROM device_tokens WHERE user_id = 1',
+  ])('%s uses an index', (query) => {
+    const plan = db.all<{ detail: string }>(sql.raw(`EXPLAIN QUERY PLAN ${query}`)).map((r) => r.detail).join(' | ');
+    expect(plan).toMatch(/USING (COVERING )?INDEX/);
   });
 });

@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { sqliteTable, integer, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, integer, text, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 const id = () => integer('id').primaryKey({ autoIncrement: true });
 const ts = (name: string) => integer(name, { mode: 'timestamp_ms' });
@@ -28,7 +28,11 @@ export const sessions = sqliteTable(
     expiresAt: ts('expires_at').notNull(),
     createdAt: ts('created_at').notNull(),
   },
-  (t) => [uniqueIndex('sessions_token_hash_unique').on(t.tokenHash)],
+  (t) => [
+    uniqueIndex('sessions_token_hash_unique').on(t.tokenHash),
+    index('sessions_user_id_idx').on(t.userId),
+    index('sessions_expires_at_idx').on(t.expiresAt), // createSession's sweep
+  ],
 );
 
 /** Trusted-device tokens: a browser that logged in before skips the per-email login cap (lockout resistance). */
@@ -41,7 +45,7 @@ export const deviceTokens = sqliteTable(
     expiresAt: ts('expires_at').notNull(),
     createdAt: ts('created_at').notNull(),
   },
-  (t) => [uniqueIndex('device_tokens_token_hash_unique').on(t.tokenHash)],
+  (t) => [uniqueIndex('device_tokens_token_hash_unique').on(t.tokenHash), index('device_tokens_user_id_idx').on(t.userId)],
 );
 
 export const usrah = sqliteTable(
@@ -81,6 +85,7 @@ export const memberships = sqliteTable(
   (t) => [
     // at most one active membership per user
     uniqueIndex('memberships_one_active_per_user').on(t.userId).where(sql`removed_at IS NULL`),
+    index('memberships_usrah_id_idx').on(t.usrahId),
   ],
 );
 
@@ -99,7 +104,7 @@ export const amalan = sqliteTable('amalan', {
   sort: integer('sort').notNull().default(0),
   createdOn: text('created_on').notNull(), // YYYY-MM-DD
   deactivatedOn: text('deactivated_on'), // YYYY-MM-DD | null
-});
+}, (t) => [index('amalan_usrah_id_idx').on(t.usrahId)]);
 
 export const dailyLogs = sqliteTable(
   'daily_logs',
@@ -112,7 +117,10 @@ export const dailyLogs = sqliteTable(
     notes: text('notes'),
     updatedAt: ts('updated_at').notNull(),
   },
-  (t) => [uniqueIndex('daily_logs_user_date_unique').on(t.userId, t.date)],
+  (t) => [
+    uniqueIndex('daily_logs_user_date_unique').on(t.userId, t.date),
+    index('daily_logs_usrah_date_idx').on(t.usrahId, t.date), // matrix / summary date windows
+  ],
 );
 
 export const guidance = sqliteTable('guidance', {
@@ -125,7 +133,7 @@ export const guidance = sqliteTable('guidance', {
   body: text('body').notNull(),
   reference: text('reference'),
   createdAt: ts('created_at').notNull(),
-});
+}, (t) => [index('guidance_usrah_id_idx').on(t.usrahId)]);
 
 export const guidanceReads = sqliteTable(
   'guidance_reads',
@@ -143,7 +151,7 @@ export const guidanceReplies = sqliteTable('guidance_replies', {
   userId: integer('user_id').notNull().references(() => users.id),
   body: text('body').notNull(),
   createdAt: ts('created_at').notNull(),
-});
+}, (t) => [index('guidance_replies_guidance_id_idx').on(t.guidanceId)]);
 
 export const notifications = sqliteTable('notifications', {
   id: id(),
@@ -153,4 +161,4 @@ export const notifications = sqliteTable('notifications', {
   link: text('link'),
   createdAt: ts('created_at').notNull(),
   readAt: ts('read_at'),
-});
+}, (t) => [index('notifications_user_id_idx').on(t.userId)]);
