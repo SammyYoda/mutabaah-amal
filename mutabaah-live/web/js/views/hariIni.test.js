@@ -77,6 +77,8 @@ describe('hariIniRoute.load', () => {
   });
 
   it('defaults activeDate to the server today and fetches the week + month range', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-09T02:00:00Z')); // browser clock agrees with the server today
     const data = await hariIniRoute.load(new URLSearchParams());
     expect(data.activeDate).toBe(TODAY);
     expect(data.today).toBe(TODAY);
