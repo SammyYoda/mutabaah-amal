@@ -17,6 +17,7 @@ import {
   type User,
 } from '../auth/sessions.js';
 import { setSessionCookie, clearSessionCookie } from '../auth/cookie.js';
+import { DEVICE_COOKIE, DEVICE_TTL_MS, createDeviceToken, setDeviceCookie, trustedDeviceHash } from '../auth/devices.js';
 import { requireUser } from '../auth/guards.js';
 import { notify } from '../services/notify.js';
 
@@ -32,11 +33,14 @@ const DUPLICATE_EMAIL = 'Emel sudah didaftarkan';
 export const LOGIN_RATE_LIMIT = { max: 10, timeWindow: '15 minutes' };
 /** IP-independent cap per normalised email (R30): a spoofed or rotating client IP can't buy more guesses. */
 export const LOGIN_EMAIL_RATE_LIMIT = { max: 20, timeWindow: '1 hour' };
+/** Replaces the per-email cap for a login from a trusted device of that account (lockout resistance). */
+export const LOGIN_DEVICE_RATE_LIMIT = { max: 20, timeWindow: '1 hour' };
 
-const loginEmailKey = (req: FastifyRequest) => {
+const loginEmailOf = (req: FastifyRequest) => {
   const email = (req.body as { email?: unknown } | undefined)?.email;
-  return `email|${typeof email === 'string' ? normaliseEmail(email) : ''}`;
+  return typeof email === 'string' ? normaliseEmail(email) : '';
 };
+const loginEmailKey = (req: FastifyRequest) => `email|${loginEmailOf(req)}`;
 
 const LoginBody = z.object({
   email: z.string().min(1).max(254),
@@ -99,12 +103,20 @@ export async function authRoutes(app: FastifyInstance) {
   const emailLimiter = typeof app.createRateLimit === 'function'
     ? app.createRateLimit({ ...LOGIN_EMAIL_RATE_LIMIT, keyGenerator: loginEmailKey })
     : undefined;
+  // Login requests that carry a valid device cookie for the submitted email → that token's hash.
+  const trustedDevice = new WeakMap<FastifyRequest, string>();
+  const deviceLimiter = typeof app.createRateLimit === 'function'
+    ? app.createRateLimit({ ...LOGIN_DEVICE_RATE_LIMIT, keyGenerator: (req) => `device|${trustedDevice.get(req)}` })
+    : undefined;
   app.post(
     '/login',
     {
       preHandler: async (req) => {
-        if (!emailLimiter) return;
-        const r = await emailLimiter(req);
+        const device = trustedDeviceHash(app.db, req.cookies[DEVICE_COOKIE], loginEmailOf(req), app.now());
+        if (device) trustedDevice.set(req, device);
+        const limiter = device ? deviceLimiter : emailLimiter;
+        if (!limiter) return;
+        const r = await limiter(req);
         if (!r.isAllowed && r.isExceeded) throw new AppError(429, 'RATE_LIMITED', MESSAGES.RATE_LIMITED);
       },
       config: {
@@ -133,6 +145,9 @@ export async function authRoutes(app: FastifyInstance) {
       const now = app.now();
       const token = createSession(app.db, user.id, now);
       setSessionCookie(reply, token, new Date(now.getTime() + SESSION_TTL_MS));
+      if (!trustedDevice.has(req)) {
+        setDeviceCookie(reply, createDeviceToken(app.db, user.id, now), new Date(now.getTime() + DEVICE_TTL_MS));
+      }
       return mePayload(app.db, user, membership);
     },
   );

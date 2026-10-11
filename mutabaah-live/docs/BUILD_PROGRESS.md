@@ -201,3 +201,6 @@ Final: parked — I-3 stale-replay edge (timeout → late failure → newer edit
 Final: parked — I-4 gap when device clock runs behind KL — Ruling: wrong-device-clock only; follow-up.
 Final verification by controller: vitest 26 files 380/380, tsc clean, build OK, demo diff empty.
 BUILD COMPLETE (commits cee0f3b..HEAD on branch live-version). All other `minor (deferred)` lines above are documented follow-ups (triaged FOLLOW-UP by final review).
+
+## Follow-up work (branch dev)
+Ruling R36 (resolves the parked targeted-lockout item): trusted-device cookie (OWASP device cookies). A successful login without one sets `did` (random token, SHA-256 hash in `device_tokens`, 180 days, HttpOnly, path /api/auth, kept on logout). A login whose `did` is valid for the submitted email is capped 20/h per device INSTEAD of the 20/h per-email cap; the 10/15min IP+email limit still applies to all. — the per-email cap let anyone lock a member out; cost if wrong: a stolen `did` gives 20 guesses/h on top of the email cap (only for that one account). Successful logins still count toward the per-email cap (minor, deferred).

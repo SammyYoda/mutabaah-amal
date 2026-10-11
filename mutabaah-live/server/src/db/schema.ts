@@ -31,6 +31,19 @@ export const sessions = sqliteTable(
   (t) => [uniqueIndex('sessions_token_hash_unique').on(t.tokenHash)],
 );
 
+/** Trusted-device tokens: a browser that logged in before skips the per-email login cap (lockout resistance). */
+export const deviceTokens = sqliteTable(
+  'device_tokens',
+  {
+    id: id(),
+    userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: ts('expires_at').notNull(),
+    createdAt: ts('created_at').notNull(),
+  },
+  (t) => [uniqueIndex('device_tokens_token_hash_unique').on(t.tokenHash)],
+);
+
 export const usrah = sqliteTable(
   'usrah',
   {

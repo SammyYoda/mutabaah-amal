@@ -261,3 +261,83 @@ describe('trustProxy and the login rate-limit key', () => {
     expect((await login(app, '203.0.113.201', 'lain@usrah.my')).statusCode).toBe(401);
   });
 });
+
+describe('trusted device cookie (per-email lockout resistance)', () => {
+  const login = (
+    app: Awaited<ReturnType<typeof setup>>['app'],
+    xff: string,
+    o: { email?: string; password?: string; cookie?: string } = {},
+  ) =>
+    app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      headers: {
+        'content-type': 'application/json',
+        origin: ORIGIN,
+        'x-forwarded-for': xff,
+        ...(o.cookie ? { cookie: o.cookie } : {}),
+      },
+      payload: JSON.stringify({ email: o.email ?? 'ahmad@usrah.my', password: o.password ?? 'salah' }),
+    });
+  const didOf = (res: { headers: Record<string, unknown> }) =>
+    ([] as string[]).concat((res.headers['set-cookie'] as string[] | string | undefined) ?? []).find((c) => c.startsWith('did='));
+  /** An attacker on rotating IPs fills the per-email bucket (an earlier real login may already have used a slot). */
+  const exhaustEmail = async (app: Awaited<ReturnType<typeof setup>>['app'], email = 'ahmad@usrah.my') => {
+    for (let i = 0; i < 20; i++) expect([401, 429]).toContain((await login(app, `203.0.113.${i}`, { email })).statusCode);
+    expect((await login(app, '203.0.113.250', { email })).statusCode).toBe(429);
+  };
+
+  it('a successful login sets a long-lived HttpOnly did cookie scoped to /api/auth', async () => {
+    const { app } = await setup({ rateLimit: true, trustProxy: 1 });
+    const res = await login(app, '198.51.100.1', { password: 'katalaluan123' });
+    expect(res.statusCode).toBe(200);
+    const did = didOf(res);
+    expect(did).toBeDefined();
+    expect(did).toMatch(/HttpOnly/i);
+    expect(did).toMatch(/Path=\/api\/auth/);
+    const expires = new Date(/Expires=([^;]+)/i.exec(did!)![1]).getTime();
+    expect(expires - Date.parse('2026-10-09T02:00:00.000Z')).toBeGreaterThan(90 * 24 * 3600 * 1000);
+  });
+
+  it('a failed login does not set a did cookie', async () => {
+    const { app } = await setup({ rateLimit: true, trustProxy: 1 });
+    expect(didOf(await login(app, '198.51.100.1'))).toBeUndefined();
+  });
+
+  it("the member's trusted device still logs in after an attacker fills the per-email limit", async () => {
+    const { app } = await setup({ rateLimit: true, trustProxy: 1 });
+    const did = didOf(await login(app, '198.51.100.1', { password: 'katalaluan123' }))!.split(';')[0];
+    await exhaustEmail(app); // attacker: locked out
+    const res = await login(app, '198.51.100.2', { password: 'katalaluan123', cookie: did });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("a device cookie only vouches for its own account", async () => {
+    const { app, db } = await setup({ rateLimit: true, trustProxy: 1 });
+    await createUser(db, { email: 'lain@usrah.my', name: 'Lain', usrahId: createTestUsrah(db) });
+    const did = didOf(await login(app, '198.51.100.1', { password: 'katalaluan123' }))!.split(';')[0];
+    await exhaustEmail(app, 'lain@usrah.my');
+    expect((await login(app, '198.51.100.2', { email: 'lain@usrah.my', cookie: did })).statusCode).toBe(429);
+  });
+
+  it('an unknown or forged did cookie is treated as untrusted', async () => {
+    const { app } = await setup({ rateLimit: true, trustProxy: 1 });
+    await exhaustEmail(app);
+    expect((await login(app, '198.51.100.2', { password: 'katalaluan123', cookie: 'did=forged' })).statusCode).toBe(429);
+  });
+
+  it('a device cookie expires after 180 days', async () => {
+    const { app, setNow } = await setup({ rateLimit: true, trustProxy: 1 });
+    const did = didOf(await login(app, '198.51.100.1', { password: 'katalaluan123' }))!.split(';')[0];
+    setNow('2027-04-10T02:00:00.000Z'); // 183 days later
+    await exhaustEmail(app);
+    expect((await login(app, '198.51.100.2', { password: 'katalaluan123', cookie: did })).statusCode).toBe(429);
+  });
+
+  it('guesses through a trusted device are capped at 20 per hour per device', async () => {
+    const { app } = await setup({ rateLimit: true, trustProxy: 1 });
+    const did = didOf(await login(app, '198.51.100.1', { password: 'katalaluan123' }))!.split(';')[0];
+    for (let i = 0; i < 20; i++) expect((await login(app, `203.0.113.${i}`, { cookie: did })).statusCode).toBe(401);
+    expect((await login(app, '203.0.113.200', { password: 'katalaluan123', cookie: did })).statusCode).toBe(429);
+  });
+});
