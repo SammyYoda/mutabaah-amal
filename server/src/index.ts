@@ -1,0 +1,56 @@
+import { existsSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { openDb, migrateDb, closeDb } from './db/client.js';
+import { buildApp } from './app.js';
+import { loadDefaultAmalan, type DefaultAmalan } from './db/defaultAmalan.js';
+import { parseBranding } from './branding.js';
+import { parseTrustProxy, productionWarnings } from './config.js';
+
+const DATABASE_URL = process.env.DATABASE_URL ?? 'file:./data/mutabaah.db';
+const PORT = Number(process.env.PORT ?? 3101);
+const APP_ORIGIN = process.env.APP_ORIGIN ?? 'http://localhost:3000';
+const { trustProxy: TRUST_PROXY, warning: trustProxyWarning } = parseTrustProxy(process.env.TRUST_PROXY);
+let BRANDING: ReturnType<typeof parseBranding>;
+try {
+  BRANDING = parseBranding(process.env);
+} catch (err) {
+  console.error((err as Error).message);
+  process.exit(1);
+}
+let DEFAULT_AMALAN: DefaultAmalan[];
+try {
+  DEFAULT_AMALAN = loadDefaultAmalan(process.env.AMALAN_FILE || undefined);
+} catch (err) {
+  console.error((err as Error).message);
+  process.exit(1);
+}
+const HOST = process.env.HOST ?? '0.0.0.0';
+
+const webDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../dist/web');
+const staticDir = process.env.NODE_ENV === 'production' && existsSync(webDir) ? webDir : undefined;
+
+const db = openDb(DATABASE_URL);
+migrateDb(db);
+
+const app = buildApp({ db, appOrigin: APP_ORIGIN, staticDir, logger: true, trustProxy: TRUST_PROXY, branding: BRANDING, defaultAmalan: DEFAULT_AMALAN });
+
+try {
+  await app.listen({ port: PORT, host: HOST });
+  if (trustProxyWarning) app.log.warn(trustProxyWarning);
+  for (const w of productionWarnings(process.env)) app.log.warn(w);
+  if (process.env.NODE_ENV === 'production' && !staticDir) {
+    app.log.warn(`${webDir} not found — run "npm run build"; serving /api only`);
+  }
+} catch (err) {
+  app.log.error(err);
+  process.exit(1);
+}
+
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.once(signal, async () => {
+    await app.close();
+    closeDb(db);
+    process.exit(0);
+  });
+}

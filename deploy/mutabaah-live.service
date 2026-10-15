@@ -1,0 +1,35 @@
+# systemd unit for the Mutaba'ah Amal live server.
+# Install:  sudo cp deploy/mutabaah-live.service /etc/systemd/system/
+#           sudo systemctl daemon-reload && sudo systemctl enable --now mutabaah-live
+# Paths below are placeholders; adjust User, WorkingDirectory,
+# the node path and APP_ORIGIN when deploying elsewhere. Run `npm run build` first.
+
+[Unit]
+Description=Mutaba'ah Amal live server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mutabaah
+Group=mutabaah
+WorkingDirectory=/opt/mutabaah-amal
+Environment=NODE_ENV=production
+Environment=PORT=3101
+Environment=HOST=127.0.0.1
+Environment=APP_ORIGIN=https://mutabaah.example.org
+Environment=TRUST_PROXY=127.0.0.1
+Environment=DATABASE_URL=file:./data/mutabaah.db
+# Environment=ORG_NAME=Your Organisation
+# Environment=AMALAN_FILE=examples/amalan-ikram.json
+ExecStart=/usr/bin/node node_modules/tsx/dist/cli.mjs server/src/index.ts
+Restart=on-failure
+RestartSec=5
+
+# Hardening: the app only needs to write its data/ directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

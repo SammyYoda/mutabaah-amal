@@ -1,0 +1,219 @@
+/**
+ * Mutaba'ah Amal Custom Styles & Animations
+ */
+
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    color: #0e1e24;
+    background-color: #f3faff;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Custom sleek scrollbar for horizontal tables & navigation */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(224, 240, 249, 0.4);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #bdc8cb;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #007a87;
+}
+
+/* Tabular figures for counters & numbers */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Circular Progress Animation */
+.progress-ring-circle {
+  transition: stroke-dashoffset 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Toast Notifications */
+#toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0e1e24;
+  box-shadow: 0 10px 25px -5px rgba(15, 30, 36, 0.15), 0 8px 10px -6px rgba(15, 30, 36, 0.1);
+  border: 1px solid #dbebf3;
+  font-size: 14px;
+  font-weight: 500;
+  animation: toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: all 0.3s ease;
+  max-width: 380px;
+}
+
+.toast.toast-success {
+  border-left: 4px solid #059669;
+}
+
+.toast.toast-info {
+  border-left: 4px solid #007a87;
+}
+
+.toast.toast-warning {
+  border-left: 4px solid #f37021;
+}
+
+.toast.toast-out {
+  opacity: 0;
+  transform: translateY(12px) scale(0.95);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Modals & Dialogs */
+.modal-overlay {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+.modal-content {
+  animation: scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Smooth Fade in for Views */
+.view-container {
+  animation: fadeInView 0.25s ease-out;
+}
+
+@keyframes fadeInView {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Interactive Ripple Hover */
+.interactive-card {
+  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.18s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.18s ease;
+}
+
+.interactive-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px -4px rgba(15, 30, 36, 0.08);
+}
+
+/* Main content area needs space for fixed header + mobile bottom nav */
+#app-main.has-chrome {
+  padding-top: 88px; /* header height (~64px) + sub-bar (~24px) */
+  padding-bottom: 8px;
+}
+
+@media (max-width: 1023px) {
+  #app-main.has-chrome {
+    padding-bottom: 72px; /* mobile bottom nav height */
+  }
+
+  #toast-container {
+    bottom: 80px; /* above mobile bottom nav */
+    right: 16px;
+    left: 16px;
+  }
+
+  .toast {
+    max-width: 100%;
+  }
+}
+
+/* Subtle Active Pulse */
+.pulse-indicator {
+  animation: pulseDot 2s infinite;
+}
+
+@keyframes pulseDot {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+/* Error toast */
+.toast.toast-error {
+  border-left: 4px solid #ba1a1a;
+}
+
+/* Loading skeleton (shown by the router while a route's load() runs) */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: #e0f0f9;
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.6) 50%, rgba(255, 255, 255, 0) 100%);
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+}

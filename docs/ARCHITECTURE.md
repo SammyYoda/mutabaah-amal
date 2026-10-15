@@ -1,0 +1,252 @@
+# Mutaba'ah Amal — Architecture
+
+This document describes how the app is designed and why. It started as the original design spec; section 14 covers configuration added since.
+
+## 1. Goal
+
+A real multi-user web app that many usrah groups can use at once. Each naqib manages and sees only their own usrah; members log their own amalan; data persists in a server-side database. (The app grew out of a localStorage prototype.)
+
+**Success criteria**
+
+- Real accounts: a member or naqib can sign up, log in, log out, and change their password.
+- Multiple usrah groups run side by side with strict data isolation (proven by tests).
+- Each usrah's amalan list (Tetapan) drives what members track and how they are scored.
+- Every dashboard number (Ringkasan, Matriks, Profil Ahli, Analitik) is computed from real logs — no hard-coded figures remain.
+- The UI is in Malay.
+
+**Non-goals (v1)** — see §11 Expansion plans.
+
+## 2. Decisions
+
+| Topic | Decision |
+|---|---|
+| Tenancy | Many usrah groups; one usrah per user |
+| Backend | Own Node 20 API (Fastify, TypeScript) |
+| Database | SQLite (WAL mode) via Drizzle ORM; MySQL kept as a config-level switch |
+| Hosting | Any host with a persistent disk (VPS, or a container platform with a volume) |
+| Frontend | Vanilla JS SPA with an API client (`api.js`) |
+| Signup | Invite-code based; no public signup without a code |
+| Auth | Email + password only; **no email verification** in v1 |
+| Amalan | Fully dynamic per usrah (input type + target) |
+| New members | Active immediately on joining (holding the code = approval) |
+
+## 3. Architecture
+
+```
+mutabaah-live/
+├── package.json            workspace root; `npm run dev`, `npm start`, `npm test`
+├── shared/
+│   └── score.js            pure scoring functions, imported by server and browser
+├── server/
+│   ├── src/
+│   │   ├── app.ts          Fastify instance, plugins, static file serving
+│   │   ├── db/schema.ts    Drizzle schema
+│   │   ├── db/seed.ts      default amalan (starter set or AMALAN_FILE)
+│   │   ├── auth/           hashing, sessions, guards (requireUser/requireNaqib/requireAdmin)
+│   │   ├── routes/         auth, logs, amalan, naqib, guidance, notifications, admin
+│   │   └── cli/create-admin.ts
+│   ├── drizzle/            generated migrations
+│   └── test/
+├── web/                    the SPA
+│   ├── index.html
+│   ├── css/style.css
+│   └── js/
+│       ├── api.js          async API client, calls /api/*
+│       ├── app.js          router (role from session, no role switcher)
+│       └── views/          the 8 main views + daftar, tukarKataLaluan, admin
+└── docs/ARCHITECTURE.md
+```
+
+- **Dev:** Vite serves `web/` and proxies `/api` to Fastify (port 3101).
+- **Production:** a single Node process serves the API and the static `web/` files.
+- **Config** via environment variables (no session secret is needed: session tokens are random and stored hashed):
+  - `DATABASE_URL` (default `file:./data/mutabaah.db`)
+  - `PORT` (default `3101`) and `HOST` (default `0.0.0.0`)
+  - `APP_ORIGIN` (default `http://localhost:3000`): exact public origin; mutating requests must send it as `Origin`. In production the server warns at startup if it is unset or not `https:`.
+  - `NODE_ENV` (`production` serves `dist/web` and marks the session cookie `Secure`)
+  - `TRUST_PROXY` (default off): a proxy hop count (`1`, `2`, …) or a comma-separated list of trusted proxy IPs/CIDRs; `true` is read as 1 hop with a startup warning; never "trust every hop".
+
+## 4. Roles & permissions
+
+Roles come from the session only; the client never chooses its role.
+
+| Role | Can |
+|---|---|
+| **Admin** (`users.is_admin`) | Create/list/rename usrah; issue naqib invites; reset any user's password |
+| **Naqib** (membership role) | Read all logs/scores in own usrah; manage own usrah's amalan; send guidance; regenerate invite code; reset a member's password; remove a member |
+| **Member** | Read/write own logs; read own usrah's amalan; read/reply to guidance addressed to them or to the whole usrah |
+
+Every query that touches usrah data is filtered by the caller's `usrah_id` taken from their membership — never from request input.
+
+## 5. Accounts & signup
+
+### 5.1 First admin
+`npm run create-admin` (CLI on the server) prompts for name, email, password and creates an admin user. It is the only account created outside the web app.
+
+### 5.2 Usrah and naqib creation
+1. Admin creates a usrah. It is seeded with the default amalan list (section 14) and gets a member invite code.
+2. Admin clicks **Jemput Naqib** → a **single-use naqib invite link** valid for 7 days (`/#daftar?jemputan=<token>`).
+3. The naqib opens the link, fills in the Daftar form, and joins that usrah with role `naqib`.
+
+### 5.3 Member signup
+1. Naqib shares the usrah's **invite code** (format `ABC-1234`, shown on Ringkasan and Tetapan) or the link `/#daftar?kod=<code>`.
+2. Member submits: name, email, phone (optional), password, confirm password, invite code.
+3. Server validates the code, creates the user and a `member` membership, starts a session, and redirects to Hari Ini.
+4. Naqib receives a notification: *"Ahli baru: <nama> telah menyertai usrah"*.
+
+The member code is reusable. **Jana kod baru** invalidates the old code; existing members are unaffected.
+
+### 5.4 Rules
+- One email = one account (case-insensitive, trimmed). Duplicate → *"Emel sudah didaftarkan"*.
+- Password: minimum 8 characters.
+- Invalid/expired code or invite → *"Kod jemputan tidak sah"*.
+- Because there is no email verification, the signup form asks for the email twice to reduce typos.
+
+### 5.5 Forgotten passwords
+No self-service reset in v1. Naqib (for members) or admin (for anyone) clicks **Set semula kata laluan** → a random temporary password is shown once → the user must change it on next login (`must_change_password`). All of the user's existing sessions are revoked.
+
+### 5.6 Removing a member
+Naqib clicks **Keluarkan ahli** → membership is marked `removed_at`; the user loses access and is logged out. Logs are retained but excluded from dashboards. The user may later rejoin with a code as a new membership.
+
+## 6. Authentication & security
+
+- Passwords hashed with **argon2id**.
+- Sessions: 32-byte random token in an `httpOnly`, `Secure` (in production), `SameSite=Lax` cookie; only the SHA-256 hash is stored in `sessions`. 30-day sliding expiry. Logout deletes the row.
+- Rate limiting: login 10 attempts / 15 min per IP, plus 20 / hour per email regardless of IP; signup 10 / hour per IP.
+- CSRF: state-changing requests require `Content-Type: application/json` and an `Origin` matching `APP_ORIGIN`.
+- `@fastify/helmet` security headers. Login failures return a generic *"Emel atau kata laluan salah"*.
+- Input validated with **zod** on every route.
+
+## 7. Data model
+
+```
+users           id, email UNIQUE, name, phone, password_hash, is_admin, must_change_password, created_at
+sessions        id, user_id, token_hash UNIQUE, expires_at, created_at
+usrah           id, name, invite_code UNIQUE, created_at
+naqib_invites   id, usrah_id, token_hash UNIQUE, expires_at, used_at, created_by
+memberships     id, user_id, usrah_id, role ('naqib'|'member'), joined_at, removed_at
+                -- at most one active (removed_at IS NULL) membership per user
+amalan          id, usrah_id, code, name, description, freq ('harian'|'mingguan'|'bulanan'),
+                input_type ('count'|'check'|'prayers'), target_val, unit, icon, active, sort,
+                created_on (date), deactivated_on (date NULL)
+daily_logs      id, user_id, usrah_id, date (YYYY-MM-DD), values JSON, notes, updated_at
+                UNIQUE(user_id, date)
+guidance        id, usrah_id, from_user_id, to_user_id NULL (= whole usrah), category,
+                title, body, reference, created_at
+guidance_reads  guidance_id, user_id, read_at
+guidance_replies id, guidance_id, user_id, body, created_at
+notifications   id, user_id, type, text, link, created_at, read_at
+```
+
+**`daily_logs.values`** is keyed by amalan id:
+- `count` → number (e.g. `{"12": 5}` pages of tilawah)
+- `check` → boolean
+- `prayers` → `{"subuh":true,"zohor":true,"asar":false,"maghrib":true,"isya":true}`
+
+Deactivated amalan keep their id, so historical values remain meaningful. Amalan are never hard-deleted once any log references them.
+
+An amalan counts toward a day's score only if `created_on ≤ day` and (`deactivated_on` is NULL or `day < deactivated_on`). Adding or deactivating an amalan therefore never changes past scores. **Re-activating** a deactivated amalan (`PATCH /amalan/:id {active:true}`) never clears `deactivated_on`: it creates a **new row** in the same usrah with the same code and fields, `created_on` = today and `active` = true, and the old row keeps its window (409 if an active row with that code already exists). Re-activation therefore never changes past scores either; Tetapan hides a deactivated row once an active row with its code exists. Editing a **target** applies retroactively (targets are not versioned in v1).
+
+## 8. Scoring (`shared/score.js`)
+
+Pure functions used by both server and browser so numbers always agree.
+
+- **Item met?** `count`: value ≥ target. `check`: true. `prayers`: count of true ≥ target (default 5).
+- **Daily score** (Hari Ini ring): met active *harian* items ÷ active *harian* items.
+- **Weekly items** (*mingguan*): aggregated across the ISO week (Mon–Sun). `check` items count the number of days ticked; `count` items sum the values; met when the total ≥ target.
+- **Monthly items** (*bulanan*): the same, aggregated over the calendar month.
+- **Period score** (dashboards, Analitik weekly bars) = items met ÷ items expected, where
+  items expected = (harian items × days elapsed in period) + (mingguan items × ISO weeks overlapping the period) + (bulanan items × calendar months overlapping the period),
+  and items met counts each harian item per day, each mingguan item per week, and each bulanan item per month that met its target. Days in the future are excluded. Mingguan/bulanan periods are judged whole: every ISO week / calendar month overlapping the range is aggregated over its full days (clipped only to the member's joined date and today, not to the range), and the item counts if it was active on the last of those days.
+- **Status band** (replaces the hard-coded `status`): ≥ 80% *Teguh (Level A)*, 60–79% *Sederhana (Level B)*, < 60% *Perlu Perhatian (Level C)*, over the last 4 weeks.
+- **New members:** a member's period scores start from their membership `joined_at` date; days before joining are neither expected nor met.
+- **In-progress and partial periods:** an unmet mingguan/bulanan period counts in *items expected* only if it is completed (does not contain today) and began on or after the member's joined date; an in-progress period, or one the member joined partway through, counts only if already met, so scores do not drop at the start of every week/month. The same applies to today's harian items: today is still in progress, so a harian item dated today counts in *items expected* only if already met (past days are unchanged; the live daily score ring is unaffected).
+- **"Baru" status:** a member with nothing expected over the last 4 weeks (e.g. joined today, no met items yet) has no level: status is `{ percentage: 0, level: null, label: 'Baru' }`, raises no Level C alert, and is excluded from group averages (average of 4 weeks / this week).
+- **Active window:** each amalan row is active on `[created_on, deactivated_on)`; re-activation adds a new row starting today (section 7), so a row's window is fixed once it is deactivated.
+- Dates are in the usrah's timezone, fixed to `Asia/Kuala_Lumpur` in v1.
+
+## 9. API
+
+All under `/api`, JSON. Errors: `{ "error": { "code": "...", "message": "<Malay text>" } }` with matching HTTP status.
+
+**Auth**
+- `POST /auth/signup` `{name, email, phone?, password, inviteCode? | naqibInvite?}`
+- `POST /auth/login` `{email, password}` · `POST /auth/logout`
+- `POST /auth/change-password` `{currentPassword, newPassword}`
+- `GET /auth/me` → user, usrah, role, `mustChangePassword`
+
+**Member**
+- `GET /amalan` — active amalan of own usrah
+- `GET /logs?from=&to=` — own logs (max range 400 days)
+- `PUT /logs/:date` `{values, notes}` — own log; `values` is **merged** per amalan id into the stored log (so two devices editing different amalan do not overwrite each other); unknown amalan ids or wrong value types → 400; counts must be integers 0–100000; `date` must be ≤ today and within the current calendar month (`Asia/Kuala_Lumpur`). **Grace period:** on days 1–7 of a month, the previous month is still editable. From the 8th, the previous month is locked and Hari Ini shows it read-only.
+- `GET /me/analytics?weeks=8` — weekly scores, 60-day heatmap, per-category breakdown
+
+**Naqib** (all limited to own usrah)
+- `POST /amalan` · `PATCH /amalan/:id` (`{active:true}` on a deactivated row returns a new row) · `DELETE /amalan/:id` (soft deactivate)
+- `GET /usrah/summary` — KPIs, roster with scores and status, attention alerts
+- `GET /usrah/matrix?weeks=4` — member × amalan completion grid
+- `GET /members/:id` — profile, trend, recent logs
+- `POST /members/:id/reset-password` → `{temporaryPassword}`
+- `DELETE /members/:id` — remove from usrah
+- `GET /usrah/invite-code` · `POST /usrah/invite-code/regenerate`
+
+**Guidance & notifications**
+- `GET /guidance` · `POST /guidance` (naqib) · `POST /guidance/:id/replies` · `POST /guidance/:id/read`
+- `GET /notifications` · `POST /notifications/read-all`
+
+**Admin**
+- `GET /admin/usrah` · `POST /admin/usrah` · `PATCH /admin/usrah/:id`
+- `POST /admin/usrah/:id/naqib-invite` → invite link
+- `POST /admin/users/:id/reset-password`
+
+## 10. Frontend changes
+
+- `web/js/api.js` exposes the data methods as async functions over `fetch` (credentials included). A 401 response routes to `#login`.
+- **Router:** role comes from `GET /auth/me`; there is no role switcher; `mustChangePassword` forces `#tukar-kata-laluan`.
+- **New views:** `daftar` (signup, reads `?kod=` / `?jemputan=`), `tukarKataLaluan`, `admin` (usrah list, create, naqib invite).
+- **Hari Ini:** renders inputs from the usrah's amalan list by `input_type` (stepper / toggle / five-prayer row); keeps the score ring using `shared/score.js`; optimistic updates with a debounced `PUT` (800 ms) and the save pill showing *Menyimpan… / Disimpan / Gagal disimpan — cuba lagi*.
+- **Tetapan:** add/edit amalan including `input_type`; shows the invite code with copy and regenerate buttons.
+- **Ringkasan, Matriks, Profil Ahli, Analitik:** replace all hard-coded numbers and SVG paths with API data; add reset-password and remove-member actions to Profil Ahli.
+- Each view shows a loading skeleton while fetching and an empty state when there is no data.
+
+## 11. Expansion plans (not in v1)
+
+Ordered roughly by expected value:
+
+1. **Email verification** — verify a new account via an emailed link before first login (SMTP via nodemailer; console fallback in dev). Needs an `email_tokens` table and an `email_verified_at` column.
+2. **Forgot password by email** — self-service reset link; reuses the email infrastructure from (1).
+3. **Naqib approval for new members** — optional "pending" state before a new member gets access.
+4. **Google sign-in** (OAuth).
+5. **Multiple usrah per user** — e.g. a naqib who is also a member elsewhere.
+6. **Per-usrah timezone.**
+7. **PWA / offline logging** with sync.
+8. **Dark mode, PDF export, guidance search** .
+9. **MySQL deployment** — switch the Drizzle dialect and `DATABASE_URL` when a deployment needs it.
+
+## 12. Error handling
+
+- All handlers validate input with zod → 400 `VALIDATION_ERROR` with a field-level Malay message.
+- 401 `UNAUTHENTICATED`, 403 `FORBIDDEN`, 404 `NOT_FOUND` (also used for resources in another usrah, so they cannot be detected), 409 `CONFLICT` (duplicate email), 429 `RATE_LIMITED`.
+- Unexpected errors → 500 with a generic message; details logged server-side only.
+- Frontend: a toast for action errors; inline messages for form errors; the save pill for log saves.
+
+## 13. Testing
+
+- **Unit (Vitest):** `shared/score.js` — each input type, weekly/monthly aggregation, deactivated items, empty logs, status bands.
+- **API integration (Vitest + Fastify `inject`, in-memory SQLite):**
+  - signup with a valid/invalid/regenerated code; naqib invite single use and expiry; duplicate email
+  - login, logout, rate limit, session expiry, forced password change after reset
+  - **cross-usrah isolation:** naqib A gets 404 for usrah B's members, logs, amalan and guidance; a member cannot read another member's logs
+  - log date window: future dates rejected; current month accepted; previous month accepted on days 1–7 and rejected from the 8th; two months back always rejected
+  - removed member loses access immediately
+- **E2E smoke (Playwright):** admin creates usrah → naqib accepts invite → member signs up with the code → logs today → naqib sees the member's score on Ringkasan.
+
+## 14. Configuration added since the original design
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `APP_NAME` | `Mutaba'ah Amal` | Application name shown in the page title and UI. Max 80 characters, single line. |
+| `ORG_NAME` | unset | Optional organisation name shown in the UI branding. Max 80 characters, single line. |
+| `AMALAN_FILE` | unset | Path to a JSON file with the default amalan list copied into each newly created usrah. Relative paths resolve from the working directory. Unset uses a small neutral starter set. |
+
+The server exposes the branding as `GET /api/config` (`{ appName, orgName }`) and the SPA applies it at runtime; `index.html` placeholders are also filled in server-side. `AMALAN_FILE` is validated at startup (non-empty array, valid fields, unique `sort` and `code`); an invalid file stops the server with a descriptive error. It only affects usrah created afterwards; existing usrah keep their amalan. See `examples/amalan-ikram.json` for a complete example.

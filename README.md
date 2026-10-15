@@ -1,0 +1,141 @@
+# Mutaba'ah Amal
+
+A multi-group, server-backed worship tracker (*mutaba'ah amal*) for usrah and halaqah groups. Members log their daily, weekly and monthly amalan; each group's naqib sees the roster, matrix, analytics and guidance (*bimbingan*) for their own group only; an admin creates groups and invites naqibs.
+
+Stack: Fastify + SQLite (Drizzle) API, vanilla-JS single-page app built with Vite.
+
+**Note: the user interface is in Malay only.**
+
+## Features
+
+- Many usrah groups side by side, with strict data isolation between them
+- Daily, weekly and monthly amalan with count, check and five-prayer inputs
+- Per-group amalan list that the naqib can edit
+- Naqib dashboard: roster, member x amalan matrix, analytics, member profiles
+- Guidance messages and replies, notifications
+- Invite-code signup, no email verification, naqib or admin password resets
+- Configurable app name, organisation name and default amalan list
+
+## Requirements
+
+- Node.js >= 20
+
+## Quick start (development)
+
+```bash
+npm install
+npm run create-admin   # prompts for Nama, Emel, Kata laluan; creates data/mutabaah.db
+npm run dev            # web: http://localhost:3000   API: http://localhost:3101
+```
+
+Vite proxies `/api` to the API on port 3101 (override with `API_URL`).
+
+## Production
+
+```bash
+npm ci                     # all dependencies: the build needs dev dependencies (Vite)
+npm run build              # builds the SPA into dist/web
+npm prune --omit=dev       # optional: drop dev dependencies once dist/web exists
+APP_ORIGIN=https://mutabaah.example.org npm start   # NODE_ENV=production; Fastify serves the API and dist/web
+```
+
+`npm start` runs the TypeScript server with `tsx`, which is a runtime dependency, so it works after
+`npm ci --omit=dev` / `npm prune --omit=dev` as long as `dist/web` was built first. `npm run build`
+itself needs the dev dependencies, so build before pruning.
+
+In production the server logs a warning at startup if `APP_ORIGIN` is unset or not `https:`: every
+login (and every other POST/PUT/PATCH/DELETE) is rejected with 403 unless the browser's origin matches
+`APP_ORIGIN` exactly.
+
+### Configuration
+
+All configuration is through environment variables. `.env.example` lists every variable with example
+values. Copy it to `.env`, edit it, and load it with `set -a; . ./.env; set +a; npm start`, or reference
+it from a systemd unit with `EnvironmentFile=`. The server does not read `.env` by itself.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `DATABASE_URL` | `file:./data/mutabaah.db` | SQLite file (migrations run on start) |
+| `PORT` | `3101` | API/HTTP port |
+| `HOST` | `0.0.0.0` | Bind address |
+| `APP_ORIGIN` | `http://localhost:3000` | Exact public origin of the app, e.g. `https://mutabaah.example.org`. Mutating requests must send this `Origin`, and invite links use it. Set it in production. |
+| `NODE_ENV` | - | `production` serves `dist/web` and marks the session cookie `Secure` |
+| `APP_NAME` | `Mutaba'ah Amal` | Application name shown in the page title and UI (max 80 characters, one line). |
+| `ORG_NAME` | unset | Optional organisation name shown in the UI (max 80 characters, one line). |
+| `AMALAN_FILE` | unset | JSON file with the default amalan for newly created usrah (see *Amalan list*). Unset uses a small neutral starter set. |
+| `TRUST_PROXY` | off | Set only when behind a reverse proxy, so rate limits key on the real client IP from `X-Forwarded-For`. Either a **hop count** (`1` = one proxy, e.g. nginx, appends the client IP; the rightmost `n` addresses are trusted) or a **comma-separated list of proxy IPs/CIDRs** (`127.0.0.1,10.0.0.0/8`; safest). `true` is read as 1 hop and logs a warning ("TRUST_PROXY=true ditafsir sebagai 1 hop proxy"). `0`/`false`/unset = off. Any other value stops startup. With a hop count, make sure the app is reachable only through the proxy (e.g. `HOST=127.0.0.1`), otherwise a direct client can forge the header. Login is also capped at 20 attempts per hour per email, whatever the IP. |
+
+Operating notes:
+
+- Run behind HTTPS (the session cookie is `Secure` in production).
+- Keep `data/` on a persistent disk.
+- Back up daily with cron: `0 3 * * * cd /path/to/mutabaah-live && npm run backup`. Backups go to `data/backups/mutabaah-YYYYMMDD-HHmm.db` (Kuala Lumpur time); the newest 14 are kept.
+- Moving to MySQL is a possible future step (see `docs/ARCHITECTURE.md`, section 11).
+
+### Amalan list
+
+Each newly created usrah is seeded with a default amalan list. Without `AMALAN_FILE` a small neutral
+starter set is used. To use your own, point `AMALAN_FILE` at a JSON file (relative paths resolve from the
+working directory); `examples/amalan-ikram.json` is a complete example. The file is a non-empty array of:
+
+```json
+{
+  "code": "01",
+  "name": "Tilawah Al-Quran",
+  "description": "Sasaran 5 muka surat sehari",
+  "freq": "harian",
+  "inputType": "count",
+  "targetVal": 5,
+  "unit": "muka surat / hari",
+  "icon": "menu_book",
+  "active": true,
+  "sort": 0
+}
+```
+
+- `name` (required), `freq` (`harian` | `mingguan` | `bulanan`), `inputType` (`count` | `check` | `prayers`), `targetVal` (positive integer) and `sort` (integer) are required.
+- `code`, `description` and `unit` are optional text; `icon` defaults to `check_circle` and `active` to `true`.
+- `sort` and `code` must each be unique within the file.
+
+The file is validated at startup; an invalid file stops the server with a message naming the problem. It
+only affects usrah created afterwards.
+
+### Running as a service (optional)
+
+`deploy/` has an example systemd unit and a backup wrapper script:
+
+- `deploy/mutabaah-live.service`: binds `127.0.0.1:3101`, `TRUST_PROXY=127.0.0.1`, restarts on failure.
+  Edit `User`, `WorkingDirectory`, the node path and `APP_ORIGIN` for your host, run `npm run build`, then
+  `sudo cp deploy/mutabaah-live.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now mutabaah-live`.
+  Logs: `journalctl -u mutabaah-live -f`.
+- `deploy/backup.sh`: cron wrapper for the backup, e.g.
+  `15 3 * * * /path/to/mutabaah-live/deploy/backup.sh >> /path/to/mutabaah-live/data/backups/backup.log 2>&1`.
+
+Put a reverse proxy in front for HTTPS (nginx, Caddy, or a Cloudflare Tunnel pointing at
+`http://localhost:3101`) and set `APP_ORIGIN` to the public URL, for example `https://mutabaah.example.org`.
+
+## Account flow
+
+1. The admin runs `npm run create-admin`, logs in and creates a usrah (it gets a member invite code such as `ABC-2345`).
+2. The admin generates a one-time naqib invite link for that usrah and sends it to the naqib.
+3. The naqib signs up through the link, then shares the usrah's invite code (shown on Ringkasan).
+4. Members sign up at `#daftar?kod=<code>` and start logging on Hari Ini.
+5. A forgotten password is reset by the naqib (for members) or the admin (for naqibs); the temporary password must be changed at next login.
+
+## Tests
+
+```bash
+npm test               # unit + integration (vitest)
+npm run test:e2e       # Playwright smoke: dev servers, then the production build
+```
+
+First E2E run needs a browser: `npx playwright install chromium` (on Linux it also needs system libraries such as `libasound2`; `npx playwright install-deps` installs them with sudo). The E2E uses ports 3000, 3101 and 3199 and throw-away databases `data/e2e.db` and `data/e2e-prod.db`.
+
+## More
+
+- Architecture, data model, API and expansion plans: `docs/ARCHITECTURE.md`.
+- Contributing: `CONTRIBUTING.md`. Security: `SECURITY.md`.
+
+## License
+
+MIT, see `LICENSE`. Copyright (c) 2026 ZS Net Solution.

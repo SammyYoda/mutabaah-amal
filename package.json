@@ -1,0 +1,52 @@
+{
+  "name": "mutabaah-live",
+  "version": "0.1.0",
+  "description": "A multi-group worship tracker (mutaba'ah amal) for usrah and halaqah groups, with a Fastify and SQLite backend.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "concurrently \"tsx watch server/src/index.ts\" \"vite web\"",
+    "build": "vite build web --outDir ../dist/web",
+    "start": "NODE_ENV=production tsx server/src/index.ts",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "db:generate": "drizzle-kit generate",
+    "create-admin": "tsx server/src/cli/create-admin.ts",
+    "backup": "tsx server/src/cli/backup.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.3",
+    "@fastify/helmet": "^13.1.2",
+    "@fastify/rate-limit": "^11.2.1",
+    "@fastify/static": "^10.1.5",
+    "@node-rs/argon2": "^2.2.2",
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "^0.45.4",
+    "fastify": "^5.12.5",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.4",
+    "concurrently": "^10.0.6",
+    "drizzle-kit": "^0.31.11",
+    "jsdom": "^29.1.1",
+    "typescript": "^7.0.2",
+    "vite": "^6.4.4",
+    "vitest": "^5.0.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SammyYoda/mutabaah-amal.git"
+  },
+  "homepage": "https://github.com/SammyYoda/mutabaah-amal#readme",
+  "bugs": {
+    "url": "https://github.com/SammyYoda/mutabaah-amal/issues"
+  }
+}
