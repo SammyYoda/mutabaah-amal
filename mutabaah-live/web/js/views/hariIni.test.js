@@ -114,7 +114,7 @@ describe('hariIniRoute.render', () => {
     expect($$('[data-action="toggle-prayer"]')).toHaveLength(5);
     expect(document.body.textContent).not.toContain('Wirid Lama');
     expect(plus(1).dataset.max).toBe('50');
-    expect($('[data-value-for="1"]').textContent).toBe('1');
+    expect($('[data-value-for="1"]').value).toBe('1');
     expect($('[data-action="toggle-task"][data-key="3"]').textContent).toContain('Selesai');
   });
 
@@ -166,12 +166,12 @@ describe('hariIniRoute.render', () => {
     getLogs.mockResolvedValue(logsResponse([log('2026-09-29', { 1: 3 })]));
     await mount('tarikh=2026-09-29');
     expect(document.body.textContent).toContain('Dikunci');
-    const inputs = $$('[data-action="stepper"], [data-action="toggle-task"], [data-action="toggle-prayer"], #daily-notes');
-    // item 4 is still active on 09-29 (deactivated from 10-05): 2 stepper buttons + 2 toggles + 5 prayers + notes
-    expect(inputs.length).toBe(2 + 2 + 5 + 1);
+    const inputs = $$('[data-action="stepper"], [data-action="count-input"], [data-action="toggle-task"], [data-action="toggle-prayer"], #daily-notes');
+    // item 4 is still active on 09-29 (deactivated from 10-05): 2 stepper buttons + 1 count field + 2 toggles + 5 prayers + notes
+    expect(inputs.length).toBe(2 + 1 + 2 + 5 + 1);
     for (const el of inputs) expect(el.disabled).toBe(true);
     plus(1).click();
-    expect($('[data-value-for="1"]').textContent).toBe('3');
+    expect($('[data-value-for="1"]').value).toBe('3');
   });
 
   it('the week strip links to #hari-ini?tarikh= and disables future days', async () => {
@@ -193,7 +193,7 @@ describe('hariIniRoute saving', () => {
     plus(1).click();
     vi.advanceTimersByTime(500);
     plus(1).click();
-    expect($('[data-value-for="1"]').textContent).toBe('3');
+    expect($('[data-value-for="1"]').value).toBe('3');
     expect(saveLog).not.toHaveBeenCalled();
     vi.advanceTimersByTime(799);
     expect(saveLog).not.toHaveBeenCalled();
@@ -202,6 +202,73 @@ describe('hariIniRoute saving', () => {
     expect(saveLog).toHaveBeenCalledTimes(1);
     expect(saveLog).toHaveBeenCalledWith(TODAY, { values: { 1: 3 } });
     expect(pill().textContent).toMatch(/Disimpan \d\d:\d\d/);
+  });
+
+  describe('typing a count', () => {
+    const field = () => $('[data-action="count-input"][data-key="1"]');
+    const type = (text, how = 'change') => {
+      const el = field();
+      el.value = text;
+      if (how === 'enter') el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      else el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+
+    it('is a numeric field showing the current count', async () => {
+      await mount();
+      const el = field();
+      expect(el.tagName).toBe('INPUT');
+      expect(el.getAttribute('inputmode')).toBe('numeric');
+      expect(el.value).toBe('1');
+      expect(el.getAttribute('aria-label')).toBe('Kiraan');
+    });
+
+    it('a typed value is saved like a stepper change (debounced, only that key) and updates the ring', async () => {
+      vi.useFakeTimers();
+      await mount();
+      type('4');
+      expect(field().value).toBe('4');
+      expect($('#daily-score-pct').textContent).toBe('33%'); // 4 < 5: not met yet → dhuha only
+      type('5', 'enter');
+      expect(field().value).toBe('5');
+      expect($('#daily-score-pct').textContent).toBe('67%');
+      await vi.advanceTimersByTimeAsync(800);
+      expect(saveLog).toHaveBeenCalledTimes(1);
+      expect(saveLog).toHaveBeenCalledWith(TODAY, { values: { 1: 5 } });
+    });
+
+    it('clamps to 0 … 10× target and drops decimals', async () => {
+      await mount();
+      type('999');
+      expect(field().value).toBe('50');
+      type('-3');
+      expect(field().value).toBe('0');
+      type('2.7');
+      expect(field().value).toBe('2');
+    });
+
+    it('empty or non-numeric input restores the previous value and saves nothing', async () => {
+      vi.useFakeTimers();
+      await mount();
+      type('');
+      expect(field().value).toBe('1');
+      type('abc');
+      expect(field().value).toBe('1');
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(saveLog).not.toHaveBeenCalled();
+    });
+
+    it('the + button continues from a typed value', async () => {
+      await mount();
+      type('3');
+      plus(1).click();
+      expect(field().value).toBe('4');
+    });
+
+    it('is disabled when the day is locked', async () => {
+      getLogs.mockResolvedValue(logsResponse([log('2026-09-29', { 1: 3 })]));
+      await mount('tarikh=2026-09-29');
+      expect(field().disabled).toBe(true);
+    });
   });
 
   it('updates the ring immediately on change', async () => {
@@ -342,7 +409,7 @@ describe('Hari Ini full flow (fake server)', () => {
     expect(db.get(TODAY).values[99]).toBe(7); // untouched key preserved by the merge
 
     await mount(); // reload from the "server"
-    expect($('[data-value-for="1"]').textContent).toBe('3');
+    expect($('[data-value-for="1"]').value).toBe('3');
     expect($('[data-action="toggle-task"][data-key="3"]').textContent).toContain('Selesai');
     expect($$('[data-action="toggle-prayer"]').every((b) => b.getAttribute('aria-pressed') === 'true')).toBe(true);
     expect($('#daily-score-pct').textContent).toBe('67%'); // tilawah 3 / 5 unmet; prayers + dhuha met → 2/3
@@ -369,7 +436,7 @@ describe('Hari Ini unsaved edits survive a failed leave (R32)', () => {
     saveLog.mockImplementation(async (date, body) => log(date, body.values ?? {}, body.notes ?? null));
     window.showToast.mockClear();
     await mount(); // server still has { 1: 1, 3: true }
-    expect($('[data-value-for="1"]').textContent).toBe('2'); // merged over the server log
+    expect($('[data-value-for="1"]').value).toBe('2'); // merged over the server log
     expect($('#daily-notes').value).toBe('belum disimpan');
     expect(window.showToast).toHaveBeenCalledWith('Perubahan belum disimpan dipulihkan', 'info');
     await vi.advanceTimersByTimeAsync(800);
@@ -410,7 +477,7 @@ describe('Hari Ini unsaved edits survive a failed leave (R32)', () => {
     expect($('#daily-notes').disabled).toBe(true);
     expect($('#btn-save-manual').disabled).toBe(true);
     plus(1).click(); // ignored
-    expect($('[data-value-for="1"]').textContent).toBe('2');
+    expect($('[data-value-for="1"]').value).toBe('2');
     resolve(log(TODAY, { 1: 2 }));
     await done;
     expect(saveLog).toHaveBeenCalledTimes(1);
@@ -424,14 +491,14 @@ describe('Hari Ini unsaved edits survive a failed leave (R32)', () => {
     await mount(`tarikh=${old}`);
     expect(stored(`mutabaah:pending:2:${old}`)).toBeNull();
     expect(window.showToast).toHaveBeenCalledWith('Log bulan ini sudah dikunci', 'error');
-    expect($('[data-value-for="1"]').textContent).toBe('0');
+    expect($('[data-value-for="1"]').value).toBe('0');
     expect(saveLog).not.toHaveBeenCalled();
   });
 
   it("another user's stored edits are not replayed", async () => {
     localStorage.setItem(`mutabaah:pending:99:${TODAY}`, JSON.stringify({ values: { 1: 4 } }));
     await mount();
-    expect($('[data-value-for="1"]').textContent).toBe('1');
+    expect($('[data-value-for="1"]').value).toBe('1');
     expect(window.showToast).not.toHaveBeenCalled();
     expect(stored(`mutabaah:pending:99:${TODAY}`)).not.toBeNull();
   });
@@ -439,7 +506,7 @@ describe('Hari Ini unsaved edits survive a failed leave (R32)', () => {
   it('corrupt stored JSON is ignored and removed', async () => {
     localStorage.setItem(PENDING_KEY, '{nope');
     await mount();
-    expect($('[data-value-for="1"]').textContent).toBe('1');
+    expect($('[data-value-for="1"]').value).toBe('1');
     expect(stored()).toBeNull();
   });
 

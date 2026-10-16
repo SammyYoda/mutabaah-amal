@@ -265,7 +265,7 @@ function countCard(st, a, n) {
         <div class="flex items-center gap-space-sm">
           ${stepBtn(-1, 'remove', 'Kurangkan')}
           <div class="flex items-baseline gap-1 px-space-xs">
-            <span class="font-numeral-counter text-numeral-counter text-on-surface font-bold text-lg tabular-nums" data-value-for="${id}">${value}</span>
+            <input class="w-14 text-center bg-transparent border-b border-outline-variant focus:border-primary focus:outline-none font-numeral-counter text-numeral-counter text-on-surface font-bold text-lg tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${INPUT_STATE}" type="number" inputmode="numeric" min="0" max="${target * 10}" step="1" value="${value}" data-action="count-input" data-key="${id}" data-value-for="${id}" aria-label="Kiraan"${dis(st)}>
             <span class="font-label-sm text-label-sm text-on-surface-variant text-xs">/ ${target} ${escapeHtml(a.unit ?? '')}</span>
           </div>
           ${stepBtn(1, 'add', 'Tambah')}
@@ -570,7 +570,7 @@ function initView(data) {
   /** Disables every input (log locked, or the page is being left and its last save is in flight). */
   function disableInputs() {
     st.readOnly = true;
-    for (const el of root.querySelectorAll('[data-action="stepper"], [data-action="toggle-task"], [data-action="toggle-prayer"], [data-action="save-now"], #daily-notes')) {
+    for (const el of root.querySelectorAll('[data-action="stepper"], [data-action="count-input"], [data-action="toggle-task"], [data-action="toggle-prayer"], [data-action="save-now"], #daily-notes')) {
       /** @type {HTMLButtonElement} */ (el).disabled = true;
     }
   }
@@ -641,7 +641,7 @@ function initView(data) {
     if (cell) cell.outerHTML = stripCell(st, st.activeDate);
   }
 
-  /** @param {any} a @param {unknown} value @param {string} focusSel */
+  /** @param {any} a @param {unknown} value @param {string} [focusSel] */
   function change(a, value, focusSel) {
     currentLog(st).values[String(a.id)] = value;
     queue.set(String(a.id), value);
@@ -703,6 +703,38 @@ function initView(data) {
       const next = Object.fromEntries(PRAYERS.map((p) => [p, p === waktu ? cur[p] !== true : cur[p] === true]));
       change(a, next, `[data-action="toggle-prayer"][data-key="${key}"][data-prayer="${waktu}"]`);
     }
+  });
+
+  /** A count typed into the stepper's field: whole number in 0 … max; junk restores the current value. */
+  function commitTyped(/** @type {HTMLInputElement} */ el) {
+    const a = byId.get(el.dataset.key ?? '');
+    if (!a || st.readOnly || el.disabled) return;
+    const current = dayValue(a, rawOf(st, a));
+    const typed = el.value.trim() === '' ? NaN : Math.trunc(Number(el.value));
+    if (!Number.isFinite(typed)) {
+      el.value = String(current);
+      return;
+    }
+    const next = Math.max(0, Math.min(Number(el.max), typed));
+    el.value = String(next);
+    if (next !== current) change(a, next);
+  }
+
+  root.addEventListener('change', (e) => {
+    const el = /** @type {HTMLElement} */ (e.target);
+    if (el.matches?.('[data-action="count-input"]')) commitTyped(/** @type {HTMLInputElement} */ (el));
+  });
+  root.addEventListener('keydown', (e) => {
+    const el = /** @type {HTMLElement} */ (e.target);
+    if (e.key !== 'Enter' || !el.matches?.('[data-action="count-input"]')) return;
+    e.preventDefault();
+    commitTyped(/** @type {HTMLInputElement} */ (el));
+    /** @type {HTMLElement|null} */ (root.querySelector(`[data-action="count-input"][data-key="${attrSel(el.dataset.key ?? '')}"]`))?.blur(); // closes the phone keyboard
+  });
+  // Tapping the number selects it, so typing replaces it.
+  root.addEventListener('focusin', (e) => {
+    const el = /** @type {HTMLElement} */ (e.target);
+    if (el.matches?.('[data-action="count-input"]')) /** @type {HTMLInputElement} */ (el).select();
   });
 
   notesEl.addEventListener('blur', () => {
