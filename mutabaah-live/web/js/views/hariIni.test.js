@@ -236,10 +236,12 @@ describe('hariIniRoute saving', () => {
       expect(saveLog).toHaveBeenCalledWith(TODAY, { values: { 1: 5 } });
     });
 
-    it('clamps to 0 … 10× target and drops decimals', async () => {
+    it('clamps to 0 … 100000 (the server limit) and drops decimals', async () => {
       await mount();
-      type('999');
-      expect(field().value).toBe('50');
+      type('999'); // far above 10× target (50): allowed when typed
+      expect(field().value).toBe('999');
+      type('150000');
+      expect(field().value).toBe('100000');
       type('-3');
       expect(field().value).toBe('0');
       type('2.7');
@@ -262,6 +264,18 @@ describe('hariIniRoute saving', () => {
       type('3');
       plus(1).click();
       expect(field().value).toBe('4');
+    });
+
+    it('+ and − never pull a typed value above the button cap back down', async () => {
+      await mount();
+      type('1000');
+      plus(1).click();
+      expect(field().value).toBe('1001');
+      $('[data-action="stepper"][data-key="1"][data-delta="-1"]').click();
+      expect(field().value).toBe('1000');
+      type('100000');
+      plus(1).click();
+      expect(field().value).toBe('100000');
     });
 
     it('is disabled when the day is locked', async () => {

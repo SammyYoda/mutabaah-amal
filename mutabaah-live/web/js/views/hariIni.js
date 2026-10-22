@@ -245,6 +245,9 @@ function chip(text, good, extraCls = '', attrs = '') {
   return `<span class="px-space-sm py-1 rounded ${good ? 'bg-teal-light text-primary' : 'bg-orange-surface text-secondary'} font-label-sm text-label-sm font-semibold text-xs shrink-0 ${extraCls}"${attrs}>${text}</span>`;
 }
 
+/** Highest count a member may type; matches the server's log validation (routes/logs.ts). */
+const COUNT_MAX = 100000;
+
 function countCard(st, a, n) {
   const id = escapeHtml(a.id);
   const target = num(a.targetVal);
@@ -265,7 +268,7 @@ function countCard(st, a, n) {
         <div class="flex items-center gap-space-sm">
           ${stepBtn(-1, 'remove', 'Kurangkan')}
           <div class="flex items-baseline gap-1 px-space-xs">
-            <input class="w-14 text-center bg-transparent border-b border-outline-variant focus:border-primary focus:outline-none font-numeral-counter text-numeral-counter text-on-surface font-bold text-lg tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${INPUT_STATE}" type="number" inputmode="numeric" min="0" max="${target * 10}" step="1" value="${value}" data-action="count-input" data-key="${id}" data-value-for="${id}" aria-label="Kiraan"${dis(st)}>
+            <input class="w-14 text-center bg-transparent border-b border-outline-variant focus:border-primary focus:outline-none font-numeral-counter text-numeral-counter text-on-surface font-bold text-lg tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${INPUT_STATE}" type="number" inputmode="numeric" min="0" max="${COUNT_MAX}" step="1" value="${value}" data-action="count-input" data-key="${id}" data-value-for="${id}" aria-label="Kiraan"${dis(st)}>
             <span class="font-label-sm text-label-sm text-on-surface-variant text-xs">/ ${target} ${escapeHtml(a.unit ?? '')}</span>
           </div>
           ${stepBtn(1, 'add', 'Tambah')}
@@ -690,9 +693,11 @@ function initView(data) {
     const key = attrSel(a.id);
     if (action === 'stepper') {
       const delta = Number(btn.dataset.delta);
-      const max = Number(btn.dataset.max);
-      const next = Math.max(0, Math.min(max, dayValue(a, rawOf(st, a)) + delta));
-      if (next === dayValue(a, rawOf(st, a))) return;
+      const current = dayValue(a, rawOf(st, a));
+      // The buttons stop at 10× target, but never pull a larger typed value back down.
+      const max = current >= Number(btn.dataset.max) ? COUNT_MAX : Number(btn.dataset.max);
+      const next = Math.max(0, Math.min(max, current + delta));
+      if (next === current) return;
       change(a, next, `[data-action="stepper"][data-key="${key}"][data-delta="${btn.dataset.delta}"]`);
     } else if (action === 'toggle-task') {
       change(a, rawOf(st, a) !== true, `[data-action="toggle-task"][data-key="${key}"]`);
