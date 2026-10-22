@@ -1,5 +1,7 @@
 node_modules/
 .claude/
+CLAUDE.md
+CLAUDE_HANDOFF.md
 *.zip
 package-lock.json
 
