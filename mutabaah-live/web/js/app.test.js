@@ -70,11 +70,38 @@ describe('AppRouter role routing', () => {
     expect(route()).toBe('#hari-ini');
   });
 
-  it('naqib + #hari-ini → #ringkasan', async () => {
+  it('naqib + empty hash still lands on #ringkasan', async () => {
+    mockApi(NAQIB, { '/api/usrah/summary': json(500, { error: { code: 'INTERNAL', message: 'x' } }) });
+    await new AppRouter().handleRoute();
+    expect(route()).toBe('#ringkasan');
+  });
+
+  it('naqib may open #hari-ini to log their own amalan', async () => {
     mockApi(NAQIB);
     history.replaceState(null, '', '#hari-ini');
     await new AppRouter().handleRoute();
-    expect(route()).toBe('#ringkasan');
+    expect(route()).toBe('#hari-ini');
+    expect(main().textContent).toContain('Sesi Muhasabah Harian');
+  });
+
+  it('naqib may open #analitik for their own analytics', async () => {
+    const empty = { weekly: [], heatmap: [], byCategory: [], status: { percentage: 0, level: null, label: 'Baru' } };
+    mockApi(NAQIB, { '/api/me/analytics?weeks=8': json(200, empty) });
+    history.replaceState(null, '', '#analitik');
+    await new AppRouter().handleRoute();
+    expect(route()).toBe('#analitik');
+    expect(main().querySelector('[data-status-badge]').textContent.trim()).toBe('Baru');
+  });
+
+  it("naqib navigation (header + mobile) links to their own Hari Ini and Analitik", async () => {
+    mockApi(NAQIB);
+    history.replaceState(null, '', '#hari-ini');
+    await new AppRouter().handleRoute();
+    const links = (root) => [...root.querySelectorAll('a[href^="#"]')].map((a) => [a.getAttribute('href'), a.textContent.replace(/\s+/g, ' ').trim()]);
+    const head = links(header());
+    expect(head).toEqual(expect.arrayContaining([['#hari-ini', 'Amalan Saya'], ['#analitik', 'Analitik Saya']]));
+    const mobile = links(document.getElementById('app-mobile-nav')).map(([h]) => h);
+    expect(mobile).toEqual(expect.arrayContaining(['#ringkasan', '#hari-ini', '#analitik', '#matriks', '#profil-ahli', '#bimbingan', '#tetapan']));
   });
 
   it('admin + empty hash → #admin', async () => {

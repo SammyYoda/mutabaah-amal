@@ -45,6 +45,9 @@ const NAV = {
   ],
   naqib: [
     ['ringkasan', 'Ringkasan', 'dashboard', 'Ringkasan'],
+    // the naqib's own tracking (not shown on the group dashboards, R18)
+    ['hari-ini', 'Amalan Saya', 'task_alt', 'Amalan'],
+    ['analitik', 'Analitik Saya', 'monitoring', 'Analitik'],
     ['matriks', 'Matriks Amalan', 'grid_view', 'Matriks'],
     ['profil-ahli', 'Profil Ahli', 'groups', 'Profil'],
     ['bimbingan', 'Bimbingan', 'forum', 'Bimbingan'],

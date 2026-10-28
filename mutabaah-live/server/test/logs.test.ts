@@ -167,3 +167,22 @@ describe('isolation', () => {
     expect(a.logs[0].notes).toBe('rahsia');
   });
 });
+
+describe("naqib's own amalan", () => {
+  it('a naqib logs and reads their own day, sees it in /me/analytics, and stays off the group dashboards (R18)', async () => {
+    const s = await setup();
+    const n = api(s.app, s.u.naqib.cookie);
+    const put = await n.put('/api/logs/2026-10-07', { values: { [s.count.id]: s.count.targetVal } });
+    expect(put.statusCode).toBe(200);
+    const got = (await n.get('/api/logs?from=2026-10-07&to=2026-10-07')).json();
+    expect(got.logs.map((l: any) => [l.date, l.values[s.count.id]])).toEqual([['2026-10-07', s.count.targetVal]]);
+    const mine = await n.get('/api/me/analytics');
+    expect(mine.statusCode).toBe(200);
+    expect(mine.json().heatmap.at(-1).percentage).toBeGreaterThan(0);
+    // the member's view of the group is unaffected: the naqib is not a roster/matrix row
+    const summary = (await n.get('/api/usrah/summary')).json();
+    expect(summary.roster.map((m: any) => m.id)).not.toContain(s.u.naqib.id);
+    const matrix = (await n.get('/api/usrah/matrix')).json();
+    expect(matrix.rows.map((r: any) => r.memberId)).not.toContain(s.u.naqib.id);
+  });
+});

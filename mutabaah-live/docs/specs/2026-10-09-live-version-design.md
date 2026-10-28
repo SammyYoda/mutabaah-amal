@@ -75,7 +75,7 @@ Roles come from the session only; the client never chooses its role.
 | Role | Can |
 |---|---|
 | **Admin** (`users.is_admin`) | Create/list/rename usrah; issue naqib invites; reset any user's password |
-| **Naqib** (membership role) | Read all logs/scores in own usrah; manage own usrah's amalan; send guidance; regenerate invite code; reset a member's password; remove a member |
+| **Naqib** (membership role) | Read all logs/scores in own usrah; manage own usrah's amalan; send guidance; regenerate invite code; reset a member's password; remove a member; **read/write own logs and see own analytics** (Hari Ini / Analitik — kept off the group dashboards, R37) |
 | **Member** | Read/write own logs; read own usrah's amalan; read/reply to guidance addressed to them or to the whole usrah |
 
 Every query that touches usrah data is filtered by the caller's `usrah_id` taken from their membership — never from request input.

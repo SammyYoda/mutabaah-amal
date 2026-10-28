@@ -1,5 +1,5 @@
 /**
- * View: Ahli - Hari Ini (daily Mutaba'ah tracker).
+ * View: Ahli / Naqib - Hari Ini (daily Mutaba'ah tracker; a naqib logs their own amalan here too).
  *
  * Renders the usrah's own amalan list (cards by inputType: count → stepper, check → toggle,
  * prayers → five-prayer row), grouped by freq, for `activeDate` (`#hari-ini?tarikh=YYYY-MM-DD`,
@@ -436,7 +436,7 @@ function renderView(data) {
               </div>
               <h1 class="font-headline-lg text-headline-lg text-on-surface mt-space-xs tracking-tight text-2xl md:text-3xl font-bold">${dateHeading(st.activeDate, st.today)}</h1>
               <p class="font-body-md text-body-md text-on-surface-variant">
-                Sesi Muhasabah Harian${me?.user?.name ? ` • Ahli: <span class="font-medium text-on-surface">${escapeHtml(me.user.name)}</span>` : ''}
+                Sesi Muhasabah Harian${me?.user?.name ? ` • ${me.role === 'naqib' ? 'Naqib' : 'Ahli'}: <span class="font-medium text-on-surface">${escapeHtml(me.user.name)}</span>` : ''}
               </p>
             </div>
 
@@ -801,7 +801,7 @@ function initView(data) {
 
 export const hariIniRoute = {
   title: "Hari Ini | Mutaba'ah Amal",
-  roles: ['member'],
+  roles: ['member', 'naqib'],
   load,
   render: renderView,
   init: initView,

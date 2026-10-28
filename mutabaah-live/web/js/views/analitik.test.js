@@ -39,8 +39,8 @@ beforeEach(() => {
 });
 
 describe('Analitik view', () => {
-  it('is a member route loading 8 weeks', async () => {
-    expect(analitikRoute.roles).toEqual(['member']);
+  it('is a member + naqib route loading 8 weeks', async () => {
+    expect(analitikRoute.roles).toEqual(['member', 'naqib']);
     await mount();
     expect(getMyAnalytics).toHaveBeenCalledWith(8);
     expect(document.body.textContent).toContain('Ali Bin Abu');

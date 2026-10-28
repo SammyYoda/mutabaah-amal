@@ -1,5 +1,5 @@
 /**
- * View: Ahli - Analitik (Personal Worship Analytics & Consistency), on live data from GET /me/analytics.
+ * View: Ahli / Naqib - Analitik (Personal Worship Analytics & Consistency), on live data from GET /me/analytics.
  * Weekly bars, 60-day heatmap, per-amalan breakdown and the 4-week status badge.
  */
 
@@ -185,7 +185,7 @@ export function initAnalitikHandlers() {
 
 export const analitikRoute = {
   title: `Analitik | ${APP}`,
-  roles: ['member'],
+  roles: ['member', 'naqib'],
   /** @param {URLSearchParams} params */
   load: (params) => {
     const w = Number(params?.get('minggu'));

@@ -72,9 +72,6 @@ describe('rangeFor', () => {
 });
 
 describe('hariIniRoute.load', () => {
-  it('is a member route', () => {
-    expect(hariIniRoute.roles).toEqual(['member']);
-  });
 
   it('defaults activeDate to the server today and fetches the week + month range', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
@@ -106,6 +103,19 @@ describe('hariIniRoute.load', () => {
 });
 
 describe('hariIniRoute.render', () => {
+  it('labels the person as Naqib (not Ahli) when a naqib logs their own amalan', async () => {
+    setSession({ user: { id: 1, name: 'Ustaz <i>Hakim</i>', email: 'n@u.my', phone: null, isAdmin: false, mustChangePassword: false }, usrah: { id: 1, name: 'Usrah An-Nur', naqibName: 'Ustaz Hakim' }, role: 'naqib' });
+    await mount();
+    const line = [...document.querySelectorAll('p')].find((p) => p.textContent.includes('Sesi Muhasabah Harian'));
+    expect(line.textContent).toContain('Naqib: Ustaz <i>Hakim</i>');
+    expect(line.textContent).not.toContain('Ahli:');
+    expect(line.querySelector('i')).toBeNull();
+  });
+
+  it('is open to naqib as well as member', () => {
+    expect(hariIniRoute.roles).toEqual(['member', 'naqib']);
+  });
+
   it('renders one stepper, one toggle and one five-prayer row; skips deactivated items', async () => {
     await mount();
     expect($$('[data-action="stepper"][data-delta="1"]')).toHaveLength(1);
