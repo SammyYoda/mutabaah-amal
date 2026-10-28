@@ -112,6 +112,15 @@ describe('hariIniRoute.render', () => {
     expect(line.querySelector('i')).toBeNull();
   });
 
+  it('the save dock sits above the fixed mobile bottom nav (80px), 24px from the bottom on desktop', async () => {
+    await mount();
+    const dock = $('[data-save-dock]');
+    expect(dock.contains($('#btn-save-manual'))).toBe(true);
+    const cls = dock.className.split(/\s+/);
+    expect(cls).toEqual(expect.arrayContaining(['sticky', 'bottom-20', 'lg:bottom-6']));
+    expect(cls).not.toContain('bottom-6');
+  });
+
   it('is open to naqib as well as member', () => {
     expect(hariIniRoute.roles).toEqual(['member', 'naqib']);
   });

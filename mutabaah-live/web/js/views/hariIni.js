@@ -509,7 +509,8 @@ function renderView(data) {
         </div>
 
         <!-- Sticky save dock -->
-        <div class="sticky bottom-6 z-30 mx-auto w-full max-w-xl mt-space-lg">
+        <!-- bottom-20 on phones: clears the fixed bottom nav (~56px, z-40), like the toasts -->
+        <div class="sticky bottom-20 lg:bottom-6 z-30 mx-auto w-full max-w-xl mt-space-lg" data-save-dock>
           <div class="bg-surface-container-lowest/95 backdrop-blur-md rounded-xl p-space-sm px-space-md shadow-xl flex items-center justify-between gap-space-md border border-outline-variant/40">
             <div class="flex items-center gap-space-sm min-w-0">
               <div class="w-9 h-9 rounded-full bg-orange-surface flex items-center justify-center text-ikram-orange shrink-0">
