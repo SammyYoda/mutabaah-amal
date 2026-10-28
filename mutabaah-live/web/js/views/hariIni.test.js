@@ -237,6 +237,7 @@ describe('hariIniRoute saving', () => {
     });
 
     it('clamps to 0 … 100000 (the server limit) and drops decimals', async () => {
+      vi.useFakeTimers(); // the debounced save must not fire during a later test
       await mount();
       type('999'); // far above 10× target (50): allowed when typed
       expect(field().value).toBe('999');
@@ -260,6 +261,7 @@ describe('hariIniRoute saving', () => {
     });
 
     it('the + button continues from a typed value', async () => {
+      vi.useFakeTimers(); // the debounced save must not fire during a later test
       await mount();
       type('3');
       plus(1).click();
@@ -267,6 +269,7 @@ describe('hariIniRoute saving', () => {
     });
 
     it('+ and − never pull a typed value above the button cap back down', async () => {
+      vi.useFakeTimers(); // the debounced save must not fire during a later test
       await mount();
       type('1000');
       plus(1).click();
